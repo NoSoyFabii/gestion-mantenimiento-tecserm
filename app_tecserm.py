@@ -13,55 +13,56 @@ if os.path.exists("logo.png"):
 else:
     st.set_page_config(page_title="TECSERM S.A.C 2026", page_icon="🚛", layout="wide")
 
-# --- 2. CONEXIÓN A SUPABASE (BBDD PROFESIONAL) ---
-st_supabase = st.connection("supabase", type=SupabaseConnection)
+# --- 2. CONEXIÓN A SUPABASE (FORMA DIRECTA Y ESTABLE) ---
+try:
+    # Sacamos las credenciales de los secrets de forma manual
+    SUPABASE_URL = st.secrets["connections"]["supabase"]["url"]
+    SUPABASE_KEY = st.secrets["connections"]["supabase"]["key"]
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception as e:
+    st.error(f"Error crítico de credenciales: {e}")
 
 def ejecutar_query(query_str=None, params=(), fetch=False, tabla="vehiculos"):
     try:
         if fetch:
-            # Lectura directa desde Supabase
-            res = st_supabase.table(tabla).select("*").execute()
+            res = supabase.table(tabla).select("*").execute()
             return pd.DataFrame(res.data)
         
-        # Lógica de escritura para Supabase
         if query_str and "INSERT INTO vehiculos" in query_str:
             data = {
                 "codigo_tcs": params[0], "placa": params[1], "marca": params[2],
                 "frecuencia": int(params[3]), "km_ultimo_manto": int(params[4]), "km_actual": int(params[5])
             }
-            st_supabase.table("vehiculos").insert(data).execute()
+            supabase.table(tabla).insert(data).execute()
             
         elif query_str and "UPDATE vehiculos SET km_actual" in query_str:
-            st_supabase.table("vehiculos").update({"km_actual": int(params[0])}).eq("codigo_tcs", params[1]).execute()
+            supabase.table(tabla).update({"km_actual": int(params[0])}).eq("codigo_tcs", params[1]).execute()
             
         elif query_str and "UPDATE vehiculos SET km_ultimo_manto" in query_str:
-            st_supabase.table("vehiculos").update({
+            supabase.table(tabla).update({
                 "km_ultimo_manto": int(params[0]), 
                 "km_actual": int(params[0])
             }).eq("codigo_tcs", params[2]).execute()
             
         elif query_str and "DELETE FROM vehiculos" in query_str:
-            st_supabase.table("vehiculos").delete().eq("codigo_tcs", params[0]).execute()
+            supabase.table(tabla).delete().eq("codigo_tcs", params[0]).execute()
             
         st.cache_data.clear()
         return True
     except Exception as e:
-        st.error(f"Error en base de datos: {e}")
-        return pd.DataFrame()
+        st.error(f"Error en operación de base de datos: {e}")
+        return False
 
 def registrar_historial(codigo, accion, km, lugar="N/A"):
     try:
         fecha_hoy = datetime.now().strftime("%d/%m/%Y %H:%M")
         data = {
-            "fecha": fecha_hoy, 
-            "codigo_tcs": str(codigo), 
-            "accion": accion, 
-            "kilometraje": int(km), 
-            "lugar": lugar
+            "fecha": fecha_hoy, "codigo_tcs": str(codigo), 
+            "accion": accion, "kilometraje": int(km), "lugar": lugar
         }
-        st_supabase.table("historial").insert(data).execute()
+        supabase.table("historial").insert(data).execute()
     except Exception as e:
-        st.error(f"Error al guardar historial: {e}")
+        st.error(f"Error al registrar en historial: {e}")
 
 # --- 3. DISEÑO CSS (TU DISEÑO ORIGINAL SE MANTIENE) ---
 st.markdown("""

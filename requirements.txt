@@ -2,4 +2,4 @@ streamlit
 streamlit-option_menu
 pandas
 xlsxwriter
-st-supabase-connection
+supabase
