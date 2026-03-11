@@ -62,16 +62,12 @@ def registrar_historial(codigo, accion, km, lugar="N/A"):
     except Exception as e:
         st.error(f"Error al guardar historial: {e}")
 
-# --- 3. DISEÑO CSS MEJORADO ---
+# --- 3. DISEÑO CSS ADAPTATIVO (CLARO/OSCURO) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;600;700&display=swap');
     
-    /* Fondo general más suave y profesional */
-    .stApp {
-        background-color: #0d1117;
-    }
-
+    /* Título con degradado que funciona en ambos modos */
     .main-title {
         font-family: 'Orbitron', sans-serif;
         font-size: 2.2rem !important;
@@ -83,52 +79,48 @@ st.markdown("""
         -webkit-text-fill-color: transparent;
         animation: shine 4s linear infinite;
         margin-bottom: 30px;
-        text-shadow: 0px 0px 15px rgba(31, 111, 235, 0.3);
     }
 
-    /* Tarjetas con efecto Glassmorphism */
+    /* Tarjeta Adaptativa */
     .card { 
-        background: rgba(22, 27, 34, 0.7); 
+        background: var(--background-secondary-color); /* Color automático de Streamlit */
         padding: 24px; 
         border-radius: 12px; 
         font-family: 'Rajdhani', sans-serif;
-        border: 1px solid rgba(48, 54, 61, 0.8);
-        transition: transform 0.2s, border 0.2s;
-    }
-    .card:hover {
-        border-color: #58a6ff;
-        transform: translateY(-2px);
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+        margin-bottom: 5px;
     }
 
-    /* Badges de KM */
+    /* Forzar color de texto dentro de la tarjeta para que siempre sea visible */
+    .card h2, .card b {
+        color: var(--text-color);
+        margin: 0;
+    }
+
+    /* Badges de KM (Fondo neutro para ambos modos) */
     .km-badge { 
-        background-color: #010409; 
+        background-color: rgba(128, 128, 128, 0.15); 
+        color: var(--text-color);
         padding: 6px 14px; 
         border-radius: 6px; 
         font-family: 'Orbitron', sans-serif; 
         font-size: 13px; 
         font-weight: bold;
-        letter-spacing: 1px;
+        border: 1px solid rgba(128, 128, 128, 0.1);
     }
 
-    /* Estilo de inputs y botones */
+    /* Botones con estilo corporativo */
     .stButton > button {
-        background-color: #1f6feb !important;
-        color: white !important;
-        border: none !important;
-        font-weight: bold !important;
-        height: 3em !important;
+        border-radius: 8px !important;
+        font-family: 'Orbitron', sans-serif !important;
         transition: 0.3s !important;
     }
-    .stButton > button:hover {
-        background-color: #388bfd !important;
-        box-shadow: 0px 0px 15px rgba(31, 111, 235, 0.5);
-    }
 
-    /* Tablas más limpias */
-    .stDataFrame {
-        border: 1px solid #30363d;
-        border-radius: 10px;
+    /* Ajuste para que los labels se lean bien siempre */
+    label, .stMarkdown p {
+        font-family: 'Rajdhani', sans-serif !important;
+        font-weight: 600;
     }
 </style>
 """, unsafe_allow_html=True)
