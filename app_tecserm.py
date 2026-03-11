@@ -263,4 +263,4 @@ elif selected == "Ajustes":
                 st.rerun()
 
 st.markdown("---")
-st.caption("TECSERM S.A.C © 2026 - Conectado a Supabase Cloud")
+st.caption("TECSERM S.A.C © 2026 - FABIOLAPP:)")
