@@ -63,8 +63,10 @@ def registrar_historial(codigo, accion, km, lugar="N/A"):
     try:
         fecha_hoy = datetime.now().strftime("%d/%m/%Y %H:%M")
         try:
+            # Intentamos leer la hoja de historial
             df_h = conn.read(worksheet="historial", ttl="0")
         except:
+            # Si falla, creamos la estructura base
             df_h = pd.DataFrame(columns=["fecha", "codigo_tcs", "accion", "kilometraje", "lugar"])
             
         nueva_fila = pd.DataFrame([{
@@ -74,8 +76,10 @@ def registrar_historial(codigo, accion, km, lugar="N/A"):
             "kilometraje": km, 
             "lugar": lugar
         }])
+        
         df_h = pd.concat([df_h, nueva_fila], ignore_index=True)
-        conn.update(worksheet=tabla="historial", data=df_h)
+        # CORRECCIÓN AQUÍ:
+        conn.update(worksheet="historial", data=df_h)
     except Exception as e:
         st.error(f"Error en historial: {e}")
 
