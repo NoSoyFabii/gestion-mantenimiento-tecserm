@@ -62,14 +62,19 @@ def registrar_historial(codigo, accion, km, lugar="N/A"):
     except Exception as e:
         st.error(f"Error al guardar historial: {e}")
 
-# --- 3. DISEÑO CSS ---
+# --- 3. DISEÑO CSS MEJORADO ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Rajdhani:wght@600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;600;700&display=swap');
     
+    /* Fondo general más suave y profesional */
+    .stApp {
+        background-color: #0d1117;
+    }
+
     .main-title {
         font-family: 'Orbitron', sans-serif;
-        font-size: 1.8rem !important;
+        font-size: 2.2rem !important;
         font-weight: 900;
         text-align: center;
         background: linear-gradient(90deg, #1f6feb, #58a6ff, #1f6feb);
@@ -77,13 +82,54 @@ st.markdown("""
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         animation: shine 4s linear infinite;
-        margin-bottom: 25px;
+        margin-bottom: 30px;
+        text-shadow: 0px 0px 15px rgba(31, 111, 235, 0.3);
     }
-    @keyframes shine { to { background-position: 200% center; } }
-    .card { background: rgba(255, 255, 255, 0.03); padding: 20px; border-radius: 15px; font-family: 'Rajdhani', sans-serif; }
-    .km-badge { background-color: #161b22; padding: 4px 12px; border-radius: 8px; font-family: 'Orbitron', sans-serif; font-size: 12px; font-weight: bold; }
-    h1, h2, h3, label, .stMarkdown { font-family: 'Rajdhani', sans-serif !important; }
-    .stButton > button { width: 100%; border-radius: 8px; font-family: 'Orbitron', sans-serif; }
+
+    /* Tarjetas con efecto Glassmorphism */
+    .card { 
+        background: rgba(22, 27, 34, 0.7); 
+        padding: 24px; 
+        border-radius: 12px; 
+        font-family: 'Rajdhani', sans-serif;
+        border: 1px solid rgba(48, 54, 61, 0.8);
+        transition: transform 0.2s, border 0.2s;
+    }
+    .card:hover {
+        border-color: #58a6ff;
+        transform: translateY(-2px);
+    }
+
+    /* Badges de KM */
+    .km-badge { 
+        background-color: #010409; 
+        padding: 6px 14px; 
+        border-radius: 6px; 
+        font-family: 'Orbitron', sans-serif; 
+        font-size: 13px; 
+        font-weight: bold;
+        letter-spacing: 1px;
+    }
+
+    /* Estilo de inputs y botones */
+    .stButton > button {
+        background-color: #1f6feb !important;
+        color: white !important;
+        border: none !important;
+        font-weight: bold !important;
+        height: 3em !important;
+        transition: 0.3s !important;
+    }
+    .stButton > button:hover {
+        background-color: #388bfd !important;
+        box-shadow: 0px 0px 15px rgba(31, 111, 235, 0.5);
+    }
+
+    /* Tablas más limpias */
+    .stDataFrame {
+        border: 1px solid #30363d;
+        border-radius: 10px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -91,7 +137,7 @@ st.markdown("""
 with st.sidebar:
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
-    st.markdown('<div style="text-align:center; font-family:\'Orbitron\'; font-weight:bold; color:#58a6ff; letter-spacing:2px;">TECSERM S.A.C</div>', unsafe_allow_html=True)
+    st.markdown('<div style="text-align:center; font-family:\'Orbitron\'; font-weight:bold; color:#58a6ff; letter-spacing:2px;"></div>', unsafe_allow_html=True)
     
     selected = option_menu(
         menu_title=None,
@@ -117,39 +163,40 @@ if selected == "Panel Control":
 
         for index, row in df.iterrows():
             p = row['% Uso']
-            color_hex = "#3fb950" if p < 60 else "#d29922" if p < 85 else "#f85149"
+            # Color dinámico mejorado
+            color_hex = "#3fb950" if p < 65 else "#d29922" if p < 85 else "#f85149"
             u_id = f"unit_{row['codigo_tcs']}".replace("-", "_")
             
-            # Formateo de números con comas para lectura fácil
             km_ini_f = f"{int(row['km_ultimo_manto']):,}"
             km_act_f = f"{int(row['km_actual']):,}"
 
             st.markdown(f"""
+            <div id="{u_id}" class="card">
+                <div style="display: flex; justify-content: space-between; align-items: start;">
+                    <div>
+                        <span style="color: {color_hex}; font-size: 12px; font-weight: bold;">● UNIDAD ACTIVA</span>
+                        <h2 style="margin: 0; color: white; font-family: 'Orbitron';">{row['codigo_tcs']}</h2>
+                        <p style="color: #8b949e; font-size: 16px; margin-bottom: 15px;">{row['placa']} • {row['marca']}</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="color: {color_hex}; font-size: 32px; font-weight: 900; font-family: 'Orbitron';">{p:.1f}%</div>
+                        <div style="color: #8b949e; font-size: 12px;">VIDA ÚTIL DE ACEITE</div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <div class="km-badge" style="border-left: 3px solid #30363d;">INICIO: {km_ini_f} KM</div>
+                    <div class="km-badge" style="border-left: 3px solid {color_hex};">ACTUAL: {km_act_f} KM</div>
+                </div>
+            </div>
             <style>
                 div[data-testid="stVerticalBlock"] > div:has(div#{u_id}) + div .stProgress > div > div > div > div {{
                     background-color: {color_hex} !important;
+                    height: 12px;
                 }}
             </style>
-            <div id="{u_id}">
-                <div class="card" style="border: 2px solid {color_hex}66; box-shadow: 0px 4px 10px {color_hex}11;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <b style="font-size: 22px; font-family: 'Orbitron'; color: white;">{row['codigo_tcs']}</b>
-                            <p style="margin:0; font-size:18px; color: #8b949e;">{row['placa']} | {row['marca']}</p>
-                        </div>
-                        <div style="text-align: right;">
-                            <div style="margin-bottom: 8px;">
-                                <span class="km-badge" style="color: #8b949e; border: 1px solid #30363d;">INICIO: {km_ini_f}</span>
-                                <span class="km-badge" style="color: {color_hex}; border: 1px solid {color_hex}44;">ACTUAL: {km_act_f}</span>
-                            </div>
-                            <div style="color: {color_hex}; font-size: 24px; font-weight: 900; font-family: 'Orbitron';">{p:.1f}%</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
             """, unsafe_allow_html=True)
             st.progress(min(p/100, 1.0))
-            st.markdown("<div style='margin-bottom:25px;'></div>", unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
 
 elif selected == "Registrar KM":
     st.subheader("📝 Actualizar Kilometraje")
@@ -284,6 +331,8 @@ elif selected == "Ajustes":
 
                     # FORMATOS
                     header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1f6feb', 'font_color': 'white', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+                    # Formato transparente para el logo (sin bordes)
+                    logo_fmt = workbook.add_format({'align': 'center', 'valign': 'vcenter','border': 0})
                     cell_center = workbook.add_format({'align': 'center', 'valign': 'vcenter', 'border': 1})
                     title_fmt = workbook.add_format({'bold': True, 'font_size': 14, 'font_color': '#1f6feb', 'align': 'center', 'valign': 'vcenter'})
                     info_fmt = workbook.add_format({'font_size': 9, 'italic': True, 'align': 'center'})
@@ -292,7 +341,7 @@ elif selected == "Ajustes":
 
                     # LOGO Y ENCABEZADO
 
-                    worksheet.merge_range('A1:B4', "", cell_center)
+                    worksheet.merge_range('A1:B4', "", logo_fmt)
                     if os.path.exists("logo.png"):
                         worksheet.insert_image('A1', 'logo.png', {'x_scale': 0.10, 'y_scale': 0.10, 'x_offset': 35, 'y_offset': 10})
 
