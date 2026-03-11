@@ -29,7 +29,7 @@ def ejecutar_query(query_str=None, params=(), fetch=False, tabla="vehiculos"):
             df_res = pd.DataFrame(res.data)
             # --- AJUSTE DE ORDENAMIENTO ---
             if not df_res.empty and 'codigo_tcs' in df_res.columns:
-                # Ordena para que siempre empiece por TCS-1, TCS-2...
+               
                 df_res = df_res.sort_values(by='codigo_tcs', key=lambda col: col.str.extract('(\d+)')[0].astype(int))
             return df_res
         
@@ -119,6 +119,11 @@ if selected == "Panel Control":
             p = row['% Uso']
             color_hex = "#3fb950" if p < 60 else "#d29922" if p < 85 else "#f85149"
             u_id = f"unit_{row['codigo_tcs']}".replace("-", "_")
+            
+            # Formateo de números con comas para lectura fácil
+            km_ini_f = f"{int(row['km_ultimo_manto']):,}"
+            km_act_f = f"{int(row['km_actual']):,}"
+
             st.markdown(f"""
             <style>
                 div[data-testid="stVerticalBlock"] > div:has(div#{u_id}) + div .stProgress > div > div > div > div {{
@@ -133,8 +138,11 @@ if selected == "Panel Control":
                             <p style="margin:0; font-size:18px; color: #8b949e;">{row['placa']} | {row['marca']}</p>
                         </div>
                         <div style="text-align: right;">
-                            <span class="km-badge" style="color: {color_hex}; border: 1px solid {color_hex}44;">KM ACTUAL: {int(row['km_actual']):,}</span>
-                            <div style="color: {color_hex}; font-size: 24px; font-weight: 900; font-family: 'Orbitron'; margin-top:5px;">{p:.1f}%</div>
+                            <div style="margin-bottom: 8px;">
+                                <span class="km-badge" style="color: #8b949e; border: 1px solid #30363d;">INICIO: {km_ini_f}</span>
+                                <span class="km-badge" style="color: {color_hex}; border: 1px solid {color_hex}44;">ACTUAL: {km_act_f}</span>
+                            </div>
+                            <div style="color: {color_hex}; font-size: 24px; font-weight: 900; font-family: 'Orbitron';">{p:.1f}%</div>
                         </div>
                     </div>
                 </div>
@@ -183,10 +191,30 @@ elif selected == "Historial":
     df_v = ejecutar_query(fetch=True)
     if not df_v.empty:
         u_busq = st.selectbox("🔍 Seleccionar Vehículo:", df_v['codigo_tcs'])
+        
+        # --- BLOQUE RECUPERADO: MÉTRICAS DE RESUMEN ---
+        # Extraemos los datos de la unidad seleccionada para mostrar arriba
+        unidad_info = df_v[df_v['codigo_tcs'] == u_busq].iloc[0]
+        km_actual = int(unidad_info['km_actual'])
+        frecuencia = int(unidad_info['frecuencia'])
+        ultimo_manto = int(unidad_info['km_ultimo_manto'])
+        proximo_manto = ultimo_manto + frecuencia
+        faltante = proximo_manto - km_actual
+
+        col1, col2, col3 = st.columns(3)
+        col1.metric("KM Actual", f"{km_actual:,} KM")
+        col2.metric("Próximo Mantenimiento", f"{proximo_manto:,} KM", f"{faltante:,} KM faltantes", delta_color="inverse")
+        col3.metric("Último Servicio", f"{ultimo_manto:,} KM")
+        
+        st.markdown("---") # Una línea divisoria para orden
+        # ---------------------------------------------
+
         hist = ejecutar_query(fetch=True, tabla="historial")
         if not hist.empty:
+            # Filtrar historial de la unidad y ordenar por fecha (el más reciente arriba)
             hist_filtrado = hist[hist['codigo_tcs'] == u_busq].sort_index(ascending=False)
-            st.dataframe(hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']], use_container_width=True, hide_index=True)
+            st.dataframe(hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']], 
+                         use_container_width=True, hide_index=True)
 
 elif selected == "Nueva Unidad":
     st.subheader("🚚 Alta de Vehículo")
