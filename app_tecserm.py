@@ -5,7 +5,7 @@ import time
 from datetime import datetime
 from streamlit_option_menu import option_menu
 import io
-from st_supabase_connection import SupabaseConnection
+from supabase import create_client, Client
 
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 if os.path.exists("logo.png"):
@@ -13,14 +13,17 @@ if os.path.exists("logo.png"):
 else:
     st.set_page_config(page_title="TECSERM S.A.C 2026", page_icon="🚛", layout="wide")
 
-# --- 2. CONEXIÓN A SUPABASE (FORMA DIRECTA Y ESTABLE) ---
+
+# --- 2. CONEXIÓN A SUPABASE ---
 try:
-    # Sacamos las credenciales de los secrets de forma manual
     SUPABASE_URL = st.secrets["connections"]["supabase"]["url"]
     SUPABASE_KEY = st.secrets["connections"]["supabase"]["key"]
+    # Aquí es donde se usa create_client
     supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 except Exception as e:
-    st.error(f"Error crítico de credenciales: {e}")
+    st.error(f"Error crítico de conexión: {e}")
+    # Creamos un objeto vacío para que no rompa el resto del código
+    supabase = None
 
 def ejecutar_query(query_str=None, params=(), fetch=False, tabla="vehiculos"):
     try:
@@ -64,7 +67,7 @@ def registrar_historial(codigo, accion, km, lugar="N/A"):
     except Exception as e:
         st.error(f"Error al registrar en historial: {e}")
 
-# --- 3. DISEÑO CSS (TU DISEÑO ORIGINAL SE MANTIENE) ---
+# --- 3. DISEÑO CSS 
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Rajdhani:wght@600;700&display=swap');
