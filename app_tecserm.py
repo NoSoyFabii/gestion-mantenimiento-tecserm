@@ -40,7 +40,7 @@ def ejecutar_query(query_str=None, params=(), fetch=False, tabla="vehiculos"):
             }
             supabase.table("vehiculos").insert(data).execute()
         elif "UPDATE vehiculos SET km_actual" in query_str:
-            supabase.table("update_km").update({"km_actual": int(params[0])}).eq("codigo_tcs", params[1]).execute()
+            supabase.table("vehiculos").update({"km_actual": int(params[0])}).eq("codigo_tcs", params[1]).execute()
         elif "UPDATE vehiculos SET km_ultimo_manto" in query_str:
             supabase.table("vehiculos").update({
                 "km_ultimo_manto": int(params[0]), "km_actual": int(params[1])
