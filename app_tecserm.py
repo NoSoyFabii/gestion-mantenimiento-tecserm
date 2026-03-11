@@ -192,42 +192,45 @@ elif selected == "Historial":
     if not df_v.empty:
         u_busq = st.selectbox("🔍 Seleccionar Vehículo:", df_v['codigo_tcs'])
         
-        # --- MÉTRICAS DE RESUMEN CORREGIDAS ---
+        # --- DATOS DE LA UNIDAD ---
         unidad_info = df_v[df_v['codigo_tcs'] == u_busq].iloc[0]
         
+        km_inicio = int(unidad_info['km_ultimo_manto'])
         km_actual = int(unidad_info['km_actual'])
         frecuencia = int(unidad_info['frecuencia'])
-        ultimo_manto = int(unidad_info['km_ultimo_manto'])
         
-        # Cálculos precisos
-        proximo_manto = ultimo_manto + frecuencia
+        # --- CÁLCULOS PRECISOS ---
+        proximo_manto = km_inicio + frecuencia
         faltante = proximo_manto - km_actual
         
-        # Diseño de métricas
+        # --- DISEÑO DE MÉTRICAS (ORDEN SOLICITADO) ---
         col1, col2, col3 = st.columns(3)
-        col1.metric("Kilometraje Actual", f"{km_actual:,} KM")
         
-        # El delta indica cuánto falta o cuánto se pasó (en rojo si es negativo)
-        col2.metric(
-            "Próximo Mantenimiento", 
+        # 1. INICIO
+        col1.metric("KM INICIO", f"{km_inicio:,} KM")
+        
+        # 2. ACTUAL
+        col2.metric("KM ACTUAL", f"{km_actual:,} KM")
+        
+        # 3. PRÓXIMO MANTENIMIENTO
+        # Usamos delta para mostrar cuánto falta o cuánto se pasó
+        label_delta = "restantes" if faltante >= 0 else "excedidos"
+        col3.metric(
+            "PRÓXIMO MANTO.", 
             f"{proximo_manto:,} KM", 
-            f"{faltante:,} KM para el servicio", 
-            delta_color="normal" if faltante > 0 else "inverse"
+            f"{faltante:,} KM {label_delta}", 
+            delta_color="normal" if faltante >= 0 else "inverse"
         )
-        
-        col3.metric("Último Mantenimiento", f"{ultimo_manto:,} KM")
         
         st.markdown("---")
 
         # --- TABLA DE HISTORIAL ---
         hist = ejecutar_query(fetch=True, tabla="historial")
         if not hist.empty:
-            # Filtrado por código y orden cronológico descendente
             hist_filtrado = hist[hist['codigo_tcs'] == u_busq].copy()
             
-            # Convertimos fecha a datetime para ordenar correctamente si es necesario
-            if 'fecha' in hist_filtrado.columns:
-                hist_filtrado = hist_filtrado.sort_index(ascending=False)
+            # Ordenar para que lo más reciente aparezca arriba
+            hist_filtrado = hist_filtrado.sort_index(ascending=False)
             
             st.dataframe(
                 hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']], 
