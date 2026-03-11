@@ -25,11 +25,14 @@ except Exception as e:
 def ejecutar_query(query_str=None, params=(), fetch=False, tabla="vehiculos"):
     try:
         if fetch:
-            # Lógica para traer datos de Supabase
             res = supabase.table(tabla).select("*").execute()
-            return pd.DataFrame(res.data)
+            df_res = pd.DataFrame(res.data)
+            # --- AJUSTE DE ORDENAMIENTO ---
+            if not df_res.empty and 'codigo_tcs' in df_res.columns:
+                # Ordena para que siempre empiece por TCS-1, TCS-2...
+                df_res = df_res.sort_values(by='codigo_tcs', key=lambda col: col.str.extract('(\d+)')[0].astype(int))
+            return df_res
         
-        # Lógica para insertar/actualizar/eliminar
         if "INSERT INTO vehiculos" in query_str:
             data = {
                 "codigo_tcs": params[0], "placa": params[1], "marca": params[2],
@@ -37,7 +40,7 @@ def ejecutar_query(query_str=None, params=(), fetch=False, tabla="vehiculos"):
             }
             supabase.table("vehiculos").insert(data).execute()
         elif "UPDATE vehiculos SET km_actual" in query_str:
-            supabase.table("vehiculos").update({"km_actual": int(params[0])}).eq("codigo_tcs", params[1]).execute()
+            supabase.table("update_km").update({"km_actual": int(params[0])}).eq("codigo_tcs", params[1]).execute()
         elif "UPDATE vehiculos SET km_ultimo_manto" in query_str:
             supabase.table("vehiculos").update({
                 "km_ultimo_manto": int(params[0]), "km_actual": int(params[1])
@@ -59,7 +62,7 @@ def registrar_historial(codigo, accion, km, lugar="N/A"):
     except Exception as e:
         st.error(f"Error al guardar historial: {e}")
 
-# --- 3. DISEÑO CSS (TU DISEÑO ORIGINAL) ---
+# --- 3. DISEÑO CSS ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Rajdhani:wght@600;700&display=swap');
@@ -209,7 +212,6 @@ elif selected == "Ajustes":
         if st.button("📊 GENERAR EXCEL CORPORATIVO"):
             df_raw = ejecutar_query(fetch=True)
             if not df_raw.empty:
-                # --- TU LÓGICA DE EXCEL PERFECTA ---
                 df_raw['Prox. Manto'] = df_raw['km_ultimo_manto'].astype(int) + df_raw['frecuencia'].astype(int)
                 df_raw['KM Faltantes'] = df_raw['Prox. Manto'] - df_raw['km_actual'].astype(int)
                 df_raw['Estado'] = df_raw['KM Faltantes'].apply(lambda x: 'CRÍTICO' if x < 200 else ('ALERTA' if x < 600 else 'OPERATIVO'))
@@ -220,14 +222,15 @@ elif selected == "Ajustes":
                     workbook = writer.book
                     worksheet = writer.sheets['Reporte']
                     
-                    # FORMATOS ORIGINALES
+                    # --- AJUSTE: AGREGAR LOGO AL EXCEL ---
+                    if os.path.exists("logo.png"):
+                        worksheet.insert_image('A1', 'logo.png', {'x_scale': 0.12, 'y_scale': 0.12})
+                    
                     header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1f6feb', 'font_color': 'white', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
                     title_fmt = workbook.add_format({'bold': True, 'font_size': 14, 'font_color': '#1f6feb', 'align': 'center', 'valign': 'vcenter'})
-                    cell_center = workbook.add_format({'align': 'center', 'valign': 'vcenter', 'border': 1})
                     cargo_fmt = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 9, 'top': 1})
                     firma_fmt = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 10})
 
-                    # LOGO Y TÍTULOS
                     worksheet.merge_range('C1:I2', 'SISTEMA DE GESTIÓN DE CALIDAD', title_fmt)
                     worksheet.merge_range('C4:I4', "MANTENIMIENTO PREVENTIVO UNIDADES - TECSERM S.A.C. 2026", workbook.add_format({'italic': True, 'align': 'center'}))
 
@@ -235,7 +238,6 @@ elif selected == "Ajustes":
                         worksheet.write(5, col_num, value, header_fmt)
                         worksheet.set_column(col_num, col_num, 15)
 
-                    # FIRMAS
                     f_idx = len(df_raw) + 9
                     worksheet.merge_range(f_idx, 1, f_idx, 3, "V°B° LOGISTICA", cargo_fmt)
                     worksheet.merge_range(f_idx + 1, 1, f_idx + 1, 3, "JUAN CARLOS ZEGARRA LOPEZ", firma_fmt)
