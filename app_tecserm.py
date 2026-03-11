@@ -210,41 +210,67 @@ elif selected == "Ajustes":
     with c1:
         st.markdown("### Exportar Reporte Ejecutivo")
         if st.button("📊 GENERAR EXCEL CORPORATIVO"):
-            df_raw = ejecutar_query(fetch=True)
+            df_raw = ejecutar_query("SELECT codigo_tcs, placa, marca, km_ultimo_manto, km_actual, frecuencia FROM vehiculos", fetch=True)
             if not df_raw.empty:
-                df_raw['Prox. Manto'] = df_raw['km_ultimo_manto'].astype(int) + df_raw['frecuencia'].astype(int)
-                df_raw['KM Faltantes'] = df_raw['Prox. Manto'] - df_raw['km_actual'].astype(int)
+                df_raw['Prox. Manto'] = df_raw['km_ultimo_manto'] + df_raw['frecuencia']
+                df_raw['KM Faltantes'] = df_raw['Prox. Manto'] - df_raw['km_actual']
                 df_raw['Estado'] = df_raw['KM Faltantes'].apply(lambda x: 'CRÍTICO' if x < 200 else ('ALERTA' if x < 600 else 'OPERATIVO'))
-                
+                df_raw.columns = ['CÓDIGO', 'PLACA', 'MARCA', 'U. MANTO (KM)', 'KM ACTUAL', 'FRECUENCIA', 'PRÓX. MANTO', 'FALTAN (KM)', 'ESTADO']
+
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     df_raw.to_excel(writer, index=False, sheet_name='Reporte', startrow=5)
-                    workbook = writer.book
+                    workbook  = writer.book
                     worksheet = writer.sheets['Reporte']
-                    
-                    # --- AJUSTE: AGREGAR LOGO AL EXCEL ---
-                    if os.path.exists("logo.png"):
-                        worksheet.insert_image('A1', 'logo.png', {'x_scale': 0.12, 'y_scale': 0.12})
-                    
+
+                    # --- CONFIGURACIÓN PARA IMPRESIÓN EN UNA HOJA HORIZONTAL ---
+
+                    worksheet.set_landscape()      # Orientación Horizontal
+                    worksheet.set_paper(9)         # Tamaño A4
+                    worksheet.fit_to_pages(1, 1)   # Ajustar a 1 página de ancho y 1 de alto
+                    worksheet.set_margins(0.3, 0.3, 0.3, 0.3) # Márgenes estrechos para ganar espacio
+                    worksheet.hide_gridlines(2)
+
+                    # FORMATOS
                     header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1f6feb', 'font_color': 'white', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+                    cell_center = workbook.add_format({'align': 'center', 'valign': 'vcenter', 'border': 1})
                     title_fmt = workbook.add_format({'bold': True, 'font_size': 14, 'font_color': '#1f6feb', 'align': 'center', 'valign': 'vcenter'})
-                    cargo_fmt = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 9, 'top': 1})
+                    info_fmt = workbook.add_format({'font_size': 9, 'italic': True, 'align': 'center'})
                     firma_fmt = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 10})
+                    cargo_fmt = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 9, 'top': 1})
+
+                    # LOGO Y ENCABEZADO
+
+                    worksheet.merge_range('A1:B4', "", cell_center)
+                    if os.path.exists("logo.png"):
+                        worksheet.insert_image('A1', 'logo.png', {'x_scale': 0.10, 'y_scale': 0.10, 'x_offset': 35, 'y_offset': 10})
 
                     worksheet.merge_range('C1:I2', 'SISTEMA DE GESTIÓN DE CALIDAD', title_fmt)
-                    worksheet.merge_range('C4:I4', "MANTENIMIENTO PREVENTIVO UNIDADES - TECSERM S.A.C. 2026", workbook.add_format({'italic': True, 'align': 'center'}))
+                    worksheet.merge_range('C3:I3', f"Fecha de Emisión: {datetime.now().strftime('%d/%m/%Y %H:%M')}", info_fmt)
+                    worksheet.merge_range('C4:I4', "MANTENIMIENTO PREVENTIVO UNIDADES - TECSERM S.A.C. 2026", info_fmt)
 
+                    # TABLA
                     for col_num, value in enumerate(df_raw.columns.values):
                         worksheet.write(5, col_num, value, header_fmt)
-                        worksheet.set_column(col_num, col_num, 15)
+                        worksheet.set_column(col_num, col_num, 14)
+
+                    for row_num, row_data in enumerate(df_raw.values):
+                        for col_num, cell_value in enumerate(row_data):
+                            if col_num == 8:
+                                color = '#3fb950' if cell_value == 'OPERATIVO' else ('#d29922' if cell_value == 'ALERTA' else '#f85149')
+                                est_fmt = workbook.add_format({'bg_color': color, 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
+                                worksheet.write(row_num + 6, col_num, cell_value, est_fmt)
+                            else:
+                                worksheet.write(row_num + 6, col_num, cell_value, cell_center)
+
+                    # FIRMAS
 
                     f_idx = len(df_raw) + 9
                     worksheet.merge_range(f_idx, 1, f_idx, 3, "V°B° LOGISTICA", cargo_fmt)
                     worksheet.merge_range(f_idx + 1, 1, f_idx + 1, 3, "JUAN CARLOS ZEGARRA LOPEZ", firma_fmt)
                     worksheet.merge_range(f_idx, 5, f_idx, 7, "V°B° CALIDAD", cargo_fmt)
                     worksheet.merge_range(f_idx + 1, 5, f_idx + 1, 7, "AARON FLORES VILLANUEVA", firma_fmt)
-
-                st.download_button(label="⬇️ Descargar Reporte", data=output.getvalue(), file_name=f"Reporte_TECSERM.xlsx")
+                st.download_button(label="⬇️ Descargar Reporte_Excel", data=output.getvalue(), file_name=f"Reporte_TECSERM_{datetime.now().strftime('%d%m')}.xlsx", mime="application/vnd.ms-excel")
 
     with c2:
         st.markdown("### Gestión de Datos")
