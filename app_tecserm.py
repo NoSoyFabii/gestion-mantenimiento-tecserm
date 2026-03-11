@@ -5,7 +5,7 @@ import time
 from datetime import datetime
 from streamlit_option_menu import option_menu
 import io
-from streamlit_gsheets import GSheetsConnection
+from st_supabase_connection import SupabaseConnection
 
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 if os.path.exists("logo.png"):
@@ -13,77 +13,57 @@ if os.path.exists("logo.png"):
 else:
     st.set_page_config(page_title="TECSERM S.A.C 2026", page_icon="🚛", layout="wide")
 
-# --- 2. CONEXIÓN A GOOGLE SHEETS (REEMPLAZA A SQLITE) ---
-conn = st.connection("gsheets", type=GSheetsConnection)
+# --- 2. CONEXIÓN A SUPABASE (BBDD PROFESIONAL) ---
+st_supabase = st.connection("supabase", type=SupabaseConnection)
 
-def ejecutar_query(query_str, params=(), fetch=False, tabla="vehiculos"):
+def ejecutar_query(query_str=None, params=(), fetch=False, tabla="vehiculos"):
     try:
-        # Intentamos leer la hoja de cálculo
-        df = conn.read(worksheet=tabla, ttl="0")
-    except Exception as e:
-        # Si la hoja está vacía o no se puede leer, creamos un DataFrame vacío con las columnas correctas
-        if tabla == "vehiculos":
-            df = pd.DataFrame(columns=["codigo_tcs", "placa", "marca", "frecuencia", "km_ultimo_manto", "km_actual"])
-        else:
-            df = pd.DataFrame(columns=["fecha", "codigo_tcs", "accion", "kilometraje", "lugar"])
-    
-    if fetch:
-        return df
-    
-    try:
-        # Simulación de lógica SQL para Google Sheets
+        if fetch:
+            # Lectura directa desde Supabase
+            res = st_supabase.table(tabla).select("*").execute()
+            return pd.DataFrame(res.data)
+        
+        # Lógica de escritura para Supabase
         if query_str and "INSERT INTO vehiculos" in query_str:
-            nueva_fila = pd.DataFrame([{
+            data = {
                 "codigo_tcs": params[0], "placa": params[1], "marca": params[2],
-                "frecuencia": params[3], "km_ultimo_manto": params[4], "km_actual": params[5]
-            }])
-            df = pd.concat([df, nueva_fila], ignore_index=True)
+                "frecuencia": int(params[3]), "km_ultimo_manto": int(params[4]), "km_actual": int(params[5])
+            }
+            st_supabase.table("vehiculos").insert(data).execute()
             
         elif query_str and "UPDATE vehiculos SET km_actual" in query_str:
-            df['codigo_tcs'] = df['codigo_tcs'].astype(str)
-            df.loc[df['codigo_tcs'] == str(params[1]), 'km_actual'] = params[0]
+            st_supabase.table("vehiculos").update({"km_actual": int(params[0])}).eq("codigo_tcs", params[1]).execute()
             
         elif query_str and "UPDATE vehiculos SET km_ultimo_manto" in query_str:
-            df['codigo_tcs'] = df['codigo_tcs'].astype(str)
-            df.loc[df['codigo_tcs'] == str(params[2]), ['km_ultimo_manto', 'km_actual']] = params[0]
+            st_supabase.table("vehiculos").update({
+                "km_ultimo_manto": int(params[0]), 
+                "km_actual": int(params[0])
+            }).eq("codigo_tcs", params[2]).execute()
             
         elif query_str and "DELETE FROM vehiculos" in query_str:
-            df['codigo_tcs'] = df['codigo_tcs'].astype(str)
-            df = df[df['codigo_tcs'] != str(params[0])]
-        
-        # Guardar cambios en la nube
-        conn.update(worksheet=tabla, data=df)
+            st_supabase.table("vehiculos").delete().eq("codigo_tcs", params[0]).execute()
+            
         st.cache_data.clear()
         return True
     except Exception as e:
-        st.error(f"Error al actualizar datos: {e}")
-        return False
+        st.error(f"Error en base de datos: {e}")
+        return pd.DataFrame()
 
 def registrar_historial(codigo, accion, km, lugar="N/A"):
     try:
         fecha_hoy = datetime.now().strftime("%d/%m/%Y %H:%M")
-        try:
-            # Intentamos leer la hoja de historial
-            df_h = conn.read(worksheet="historial", ttl="0")
-        except:
-            # Si falla, creamos la estructura base
-            df_h = pd.DataFrame(columns=["fecha", "codigo_tcs", "accion", "kilometraje", "lugar"])
-            
-        nueva_fila = pd.DataFrame([{
+        data = {
             "fecha": fecha_hoy, 
             "codigo_tcs": str(codigo), 
             "accion": accion, 
-            "kilometraje": km, 
+            "kilometraje": int(km), 
             "lugar": lugar
-        }])
-        
-        df_h = pd.concat([df_h, nueva_fila], ignore_index=True)
-        # CORRECCIÓN AQUÍ:
-        conn.update(worksheet="historial", data=df_h)
+        }
+        st_supabase.table("historial").insert(data).execute()
     except Exception as e:
-        st.error(f"Error en historial: {e}")
+        st.error(f"Error al guardar historial: {e}")
 
-# --- 3. DISEÑO CSS (TU DISEÑO ORIGINAL) ---
+# --- 3. DISEÑO CSS (TU DISEÑO ORIGINAL SE MANTIENE) ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Rajdhani:wght@600;700&display=swap');
@@ -130,7 +110,7 @@ st.markdown('<div class="main-title">GESTIÓN DE MANTENIMIENTO PREVENTIVO</div>'
 
 if selected == "Panel Control":
     st.subheader("📊 Monitoreo de Unidades")
-    df = ejecutar_query("SELECT * FROM vehiculos", fetch=True)
+    df = ejecutar_query(fetch=True, tabla="vehiculos")
     if not df.empty:
         df['Recorrido'] = df['km_actual'].astype(int) - df['km_ultimo_manto'].astype(int)
         df['% Uso'] = ((df['Recorrido'] / df['frecuencia'].astype(int)) * 100).clip(0, 110)
@@ -165,7 +145,7 @@ if selected == "Panel Control":
 
 elif selected == "Registrar KM":
     st.subheader("📝 Actualizar Kilometraje")
-    df_v = ejecutar_query("SELECT * FROM vehiculos", fetch=True)
+    df_v = ejecutar_query(fetch=True, tabla="vehiculos")
     if not df_v.empty:
         u_sel = st.selectbox("Seleccione Unidad", df_v['codigo_tcs'])
         val_actual = int(df_v[df_v['codigo_tcs'] == u_sel]['km_actual'].values[0])
@@ -183,7 +163,7 @@ elif selected == "Registrar KM":
 
 elif selected == "Mantenimiento":
     st.subheader("🔧 Reiniciar Ciclo")
-    df_v = ejecutar_query("SELECT * FROM vehiculos", fetch=True)
+    df_v = ejecutar_query(fetch=True, tabla="vehiculos")
     if not df_v.empty:
         u_m = st.selectbox("Unidad que recibió servicio", df_v['codigo_tcs'])
         with st.form("manto_fix"):
@@ -200,7 +180,7 @@ elif selected == "Mantenimiento":
 
 elif selected == "Historial":
     st.subheader("🕒 Expediente Individual")
-    df_v = ejecutar_query("SELECT * FROM vehiculos", fetch=True)
+    df_v = ejecutar_query(fetch=True, tabla="vehiculos")
     if not df_v.empty:
         u_busq = st.selectbox("🔍 Seleccionar Vehículo:", df_v['codigo_tcs'])
         u_sel = df_v[df_v['codigo_tcs'] == u_busq].iloc[0]
@@ -211,9 +191,10 @@ elif selected == "Historial":
         c2.metric("KM ACTUAL", f"{int(u_sel['km_actual']):,} KM")
         c3.metric("Próximo Manto", f"{prox_manto:,} KM", delta=f"{restante:,} restantes")
         st.markdown("---")
-        hist = ejecutar_query(None, fetch=True, tabla="historial")
-        hist_filtrado = hist[hist['codigo_tcs'] == u_busq].sort_index(ascending=False)
-        st.dataframe(hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']], use_container_width=True, hide_index=True)
+        hist = ejecutar_query(fetch=True, tabla="historial")
+        if not hist.empty:
+            hist_filtrado = hist[hist['codigo_tcs'] == u_busq].sort_index(ascending=False)
+            st.dataframe(hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']], use_container_width=True, hide_index=True)
 
 elif selected == "Nueva Unidad":
     st.subheader("🚚 Alta de Vehículo")
@@ -238,7 +219,7 @@ elif selected == "Ajustes":
     with c1:
         st.markdown("### Exportar Reporte Ejecutivo")
         if st.button("📊 GENERAR EXCEL CORPORATIVO"):
-            df_raw = ejecutar_query(None, fetch=True)
+            df_raw = ejecutar_query(fetch=True)
             if not df_raw.empty:
                 df_raw['Prox. Manto'] = df_raw['km_ultimo_manto'].astype(int) + df_raw['frecuencia'].astype(int)
                 df_raw['KM Faltantes'] = df_raw['Prox. Manto'] - df_raw['km_actual'].astype(int)
@@ -249,7 +230,6 @@ elif selected == "Ajustes":
                     df_raw.to_excel(writer, index=False, sheet_name='Reporte', startrow=5)
                     workbook  = writer.book
                     worksheet = writer.sheets['Reporte']
-                    # ... (Tu misma lógica de formato Excel original se mantiene aquí) ...
                     header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1f6feb', 'font_color': 'white', 'border': 1, 'align': 'center'})
                     title_fmt = workbook.add_format({'bold': True, 'font_size': 14, 'font_color': '#1f6feb', 'align': 'center'})
                     
@@ -261,7 +241,7 @@ elif selected == "Ajustes":
 
     with c2:
         st.markdown("### Gestión de Datos")
-        df_del = ejecutar_query(None, fetch=True)
+        df_del = ejecutar_query(fetch=True)
         if not df_del.empty:
             target = st.selectbox("Eliminar Unidad:", df_del['codigo_tcs'])
             if st.button("❌ ELIMINAR", type="primary"):
