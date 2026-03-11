@@ -192,30 +192,50 @@ elif selected == "Historial":
     if not df_v.empty:
         u_busq = st.selectbox("🔍 Seleccionar Vehículo:", df_v['codigo_tcs'])
         
-        # --- BLOQUE RECUPERADO: MÉTRICAS DE RESUMEN ---
-        # Extraemos los datos de la unidad seleccionada para mostrar arriba
+        # --- MÉTRICAS DE RESUMEN CORREGIDAS ---
         unidad_info = df_v[df_v['codigo_tcs'] == u_busq].iloc[0]
+        
         km_actual = int(unidad_info['km_actual'])
         frecuencia = int(unidad_info['frecuencia'])
         ultimo_manto = int(unidad_info['km_ultimo_manto'])
+        
+        # Cálculos precisos
         proximo_manto = ultimo_manto + frecuencia
         faltante = proximo_manto - km_actual
-
-        col1, col2, col3 = st.columns(3)
-        col1.metric("KM Actual", f"{km_actual:,} KM")
-        col2.metric("Próximo Mantenimiento", f"{proximo_manto:,} KM", f"{faltante:,} KM faltantes", delta_color="inverse")
-        col3.metric("Último Servicio", f"{ultimo_manto:,} KM")
         
-        st.markdown("---") # Una línea divisoria para orden
-        # ---------------------------------------------
+        # Diseño de métricas
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Kilometraje Actual", f"{km_actual:,} KM")
+        
+        # El delta indica cuánto falta o cuánto se pasó (en rojo si es negativo)
+        col2.metric(
+            "Próximo Mantenimiento", 
+            f"{proximo_manto:,} KM", 
+            f"{faltante:,} KM para el servicio", 
+            delta_color="normal" if faltante > 0 else "inverse"
+        )
+        
+        col3.metric("Último Mantenimiento", f"{ultimo_manto:,} KM")
+        
+        st.markdown("---")
 
+        # --- TABLA DE HISTORIAL ---
         hist = ejecutar_query(fetch=True, tabla="historial")
         if not hist.empty:
-            # Filtrar historial de la unidad y ordenar por fecha (el más reciente arriba)
-            hist_filtrado = hist[hist['codigo_tcs'] == u_busq].sort_index(ascending=False)
-            st.dataframe(hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']], 
-                         use_container_width=True, hide_index=True)
-
+            # Filtrado por código y orden cronológico descendente
+            hist_filtrado = hist[hist['codigo_tcs'] == u_busq].copy()
+            
+            # Convertimos fecha a datetime para ordenar correctamente si es necesario
+            if 'fecha' in hist_filtrado.columns:
+                hist_filtrado = hist_filtrado.sort_index(ascending=False)
+            
+            st.dataframe(
+                hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']], 
+                use_container_width=True, 
+                hide_index=True
+            )
+        else:
+            st.info("No hay registros de movimientos para esta unidad.")
 elif selected == "Nueva Unidad":
     st.subheader("🚚 Alta de Vehículo")
     with st.form("new_unit_form"):
