@@ -17,47 +17,67 @@ else:
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def ejecutar_query(query_str, params=(), fetch=False, tabla="vehiculos"):
-    # Leemos la tabla actual de Google Sheets
-    df = conn.read(worksheet=tabla, ttl=0)
+    try:
+        # Intentamos leer la hoja de cálculo
+        df = conn.read(worksheet=tabla, ttl="0")
+    except Exception as e:
+        # Si la hoja está vacía o no se puede leer, creamos un DataFrame vacío con las columnas correctas
+        if tabla == "vehiculos":
+            df = pd.DataFrame(columns=["codigo_tcs", "placa", "marca", "frecuencia", "km_ultimo_manto", "km_actual"])
+        else:
+            df = pd.DataFrame(columns=["fecha", "codigo_tcs", "accion", "kilometraje", "lugar"])
     
     if fetch:
         return df
     
-    # Simulación de lógica SQL para Google Sheets basada en tus necesidades
-    if "INSERT INTO vehiculos" in query_str:
-        # params: (cod, pla, mar, fre, ini, ini)
-        nueva_fila = pd.DataFrame([{
-            "codigo_tcs": params[0], "placa": params[1], "marca": params[2],
-            "frecuencia": params[3], "km_ultimo_manto": params[4], "km_actual": params[5]
-        }])
-        df = pd.concat([df, nueva_fila], ignore_index=True)
+    try:
+        # Simulación de lógica SQL para Google Sheets
+        if query_str and "INSERT INTO vehiculos" in query_str:
+            nueva_fila = pd.DataFrame([{
+                "codigo_tcs": params[0], "placa": params[1], "marca": params[2],
+                "frecuencia": params[3], "km_ultimo_manto": params[4], "km_actual": params[5]
+            }])
+            df = pd.concat([df, nueva_fila], ignore_index=True)
+            
+        elif query_str and "UPDATE vehiculos SET km_actual" in query_str:
+            df['codigo_tcs'] = df['codigo_tcs'].astype(str)
+            df.loc[df['codigo_tcs'] == str(params[1]), 'km_actual'] = params[0]
+            
+        elif query_str and "UPDATE vehiculos SET km_ultimo_manto" in query_str:
+            df['codigo_tcs'] = df['codigo_tcs'].astype(str)
+            df.loc[df['codigo_tcs'] == str(params[2]), ['km_ultimo_manto', 'km_actual']] = params[0]
+            
+        elif query_str and "DELETE FROM vehiculos" in query_str:
+            df['codigo_tcs'] = df['codigo_tcs'].astype(str)
+            df = df[df['codigo_tcs'] != str(params[0])]
         
-    elif "UPDATE vehiculos SET km_actual" in query_str:
-        # params: (nuevo_km, u_sel)
-        df.loc[df['codigo_tcs'] == params[1], 'km_actual'] = params[0]
-        
-    elif "UPDATE vehiculos SET km_ultimo_manto" in query_str:
-        # params: (km_serv, km_serv, u_m)
-        df.loc[df['codigo_tcs'] == params[2], ['km_ultimo_manto', 'km_actual']] = params[0]
-        
-    elif "DELETE FROM vehiculos" in query_str:
-        # params: (target,)
-        df = df[df['codigo_tcs'] != params[0]]
-    
-    # Guardar cambios en la nube
-    conn.update(worksheet=tabla, data=df)
-    st.cache_data.clear()
-    return True
+        # Guardar cambios en la nube
+        conn.update(worksheet=tabla, data=df)
+        st.cache_data.clear()
+        return True
+    except Exception as e:
+        st.error(f"Error al actualizar datos: {e}")
+        return False
 
 def registrar_historial(codigo, accion, km, lugar="N/A"):
-    fecha_hoy = datetime.now().strftime("%d/%m/%Y %H:%M")
-    df_h = conn.read(worksheet="historial", ttl=0)
-    nueva_fila = pd.DataFrame([{
-        "fecha": fecha_hoy, "codigo_tcs": codigo, 
-        "accion": accion, "kilometraje": km, "lugar": lugar
-    }])
-    df_h = pd.concat([df_h, nueva_fila], ignore_index=True)
-    conn.update(worksheet="historial", data=df_h)
+    try:
+        fecha_hoy = datetime.now().strftime("%d/%m/%Y %H:%M")
+        try:
+            df_h = conn.read(worksheet="historial", ttl="0")
+        except:
+            df_h = pd.DataFrame(columns=["fecha", "codigo_tcs", "accion", "kilometraje", "lugar"])
+            
+        nueva_fila = pd.DataFrame([{
+            "fecha": fecha_hoy, 
+            "codigo_tcs": str(codigo), 
+            "accion": accion, 
+            "kilometraje": km, 
+            "lugar": lugar
+        }])
+        df_h = pd.concat([df_h, nueva_fila], ignore_index=True)
+        conn.update(worksheet=tabla="historial", data=df_h)
+    except Exception as e:
+        st.error(f"Error en historial: {e}")
 
 # --- 3. DISEÑO CSS (TU DISEÑO ORIGINAL) ---
 st.markdown("""
