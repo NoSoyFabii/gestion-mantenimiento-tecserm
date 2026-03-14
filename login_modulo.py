@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 
-USUARIOS = {"admin": "tecserm2026", "logistica": "log2026"}
+USUARIOS = {"logistica": "log2026"}
 
 def check_login():
     if "autenticado" not in st.session_state:
@@ -20,103 +20,111 @@ def check_login():
             [data-testid="stVerticalBlock"] {
                 align-items: center !important;
                 justify-content: center !important;
+                display: flex;
+                flex-direction: column;
             }
 
-            /* 3. Tarjeta de Login (Ancho controlado) */
+            /* 3. Tarjeta de Login - ANCHO AMPLIADO para letras gigantes */
             .login-card {
                 background: #161b22;
-                padding: 40px;
-                border-radius: 20px;
+                padding: 50px;
+                border-radius: 25px;
                 border: 1px solid #30363d;
-                box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-                width: 500px; /* Ancho fijo para que no se estire */
+                box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+                width: 900px; /* Aumentado para que el texto de 100px quepa */
                 text-align: center;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
+                margin: auto;
             }
 
-            /* 4. Recuadro Neón Superior con Texto Centrado y Grande */
+            /* 4. Recuadro Neón Superior */
             .neon-header-box {
-                border: 3px solid #00d4ff;
-                border-radius: 12px;
-                padding: 25px;
-                margin-bottom: 30px;
-                box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+                border: 4px solid #00d4ff;
+                border-radius: 15px;
+                padding: 30px;
+                margin-bottom: 35px;
+                box-shadow: 0 0 25px rgba(0, 212, 255, 0.4);
                 background: rgba(0, 212, 255, 0.05);
-                width: 100%; /* Ocupa el ancho de la tarjeta */
+                width: 100%;
                 box-sizing: border-box;
             }
 
             .company-title {
                 font-family: 'Orbitron', sans-serif;
                 color: #00d4ff;
-                font-size: 100px; /* ¡Más grande! */
+                font-size: 100px; /* TAMAÑO SOLICITADO */
                 font-weight: 900;
                 margin: 0;
                 text-align: center;
+                line-height: 1;
+                white-space: nowrap; /* Evita que se rompa en dos líneas */
             }
 
             .system-subtitle {
                 font-family: 'Rajdhani', sans-serif;
                 color: #00ff87;
-                font-size: 80px; /* ¡Más grande! */
+                font-size: 70px; /* Ajustado de 80 a 70 para legibilidad técnica */
                 font-weight: 700;
                 text-transform: uppercase;
-                margin-top: 10px;
+                margin-top: 15px;
                 text-align: center;
-                letter-spacing: 2px;
+                letter-spacing: 3px;
+                line-height: 1;
             }
 
-            /* 5. Etiquetas de entrada centradas */
+            /* 5. Etiquetas de entrada */
             .label-modern {
                 font-family: 'Rajdhani', sans-serif;
                 color: #8b949e;
-                font-size: 15px;
+                font-size: 20px;
                 font-weight: 700;
                 text-transform: uppercase;
-                margin-top: 20px;
-                margin-bottom: 8px;
+                margin-top: 30px;
+                margin-bottom: 10px;
                 text-align: center;
                 width: 100%;
             }
 
-            /* 6. Botón centrado y llamativo */
+            /* 6. Botón */
             .stButton>button {
                 background: linear-gradient(90deg, #00d4ff, #0072ff) !important;
                 color: white !important;
                 font-family: 'Orbitron', sans-serif !important;
                 font-weight: 900 !important;
-                font-size: 20px !important;
+                font-size: 24px !important;
                 border: none !important;
-                border-radius: 10px !important;
-                padding: 15px !important;
-                margin-top: 35px !important;
+                border-radius: 12px !important;
+                padding: 20px !important;
+                margin-top: 40px !important;
                 width: 100% !important;
-                box-shadow: 0 5px 15px rgba(0, 212, 255, 0.4) !important;
+                box-shadow: 0 8px 20px rgba(0, 212, 255, 0.4) !important;
             }
-            
-            /* Ajuste para que la imagen siempre esté al centro */
-            .stImage > img {
-                display: block;
-                margin-left: auto;
-                margin-right: auto;
+
+            /* Centrado forzado de logo */
+            .stImage {
+                display: flex;
+                justify-content: center;
+                margin: 20px 0;
             }
             </style>
         """, unsafe_allow_html=True)
 
+        # Inicio de la tarjeta
+        st.markdown('<div class="login-card">', unsafe_allow_html=True)
         
-        # 1. Recuadro con textos (Centrados y Grandes)
+        # 1. Recuadro con textos
         st.markdown("""
             <div class="neon-header-box">
                 <p class="company-title">TECSERM S.A.C</p>
-                <p class="system-subtitle">Sistema de Control de Vehículos</p>
+                <p class="system-subtitle">CONTROL DE VEHÍCULOS</p>
             </div>
         """, unsafe_allow_html=True)
 
-        # 2. Logo Centrado y Grande
+        # 2. Logo Centrado (Aumentado a 300 para que no se pierda con las letras)
         if os.path.exists("logo.png"):
-            st.image("logo.png", width=250)
+            st.image("logo.png", width=300)
         
         # 3. Entradas de Usuario
         st.markdown('<p class="label-modern">Identificación de Usuario</p>', unsafe_allow_html=True)
@@ -133,6 +141,5 @@ def check_login():
             else:
                 st.error("Credenciales no válidas")
         
-        st.markdown('</div>', unsafe_allow_html=True)
-
+        st.markdown('</div>', unsafe_allow_html=True) # Cierre de la tarjeta
         st.stop()
