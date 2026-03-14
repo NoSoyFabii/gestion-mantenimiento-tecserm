@@ -9,11 +9,13 @@ from supabase import create_client, Client
 from login_modulo import check_login
 
 def cerrar_sesion():
-    # Limpia todo el estado de la sesión
-    for key in st.session_state.keys():
+    # Limpia el estado
+    for key in list(st.session_state.keys()):
         del st.session_state[key]
+    # Seteamos explícitamente el estado a False por si el loop del login lo requiere
+    st.session_state["autenticado"] = False
     
-    
+
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 if os.path.exists("logo.png"):
     st.set_page_config(page_title="TECSERM S.A.C 2026", page_icon="logo.png", layout="wide")
@@ -28,6 +30,8 @@ try:
 except Exception as e:
     st.error(f"Error crítico de conexión: {e}")
     supabase = None
+
+check_login()
 
 def ejecutar_query(query_str=None, params=(), fetch=False, tabla="vehiculos"):
     try:
