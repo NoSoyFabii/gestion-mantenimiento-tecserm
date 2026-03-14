@@ -40,7 +40,7 @@ def check_login():
         /* TITULO */
         .title{
             font-family:'Orbitron';
-            font-size:42px;
+            font-size:45px;
             font-weight:800;
             color:#00e5ff;
             margin-bottom:5px;
@@ -50,7 +50,7 @@ def check_login():
         /* SUBTITULO */
         .subtitle{
             font-family:'Rajdhani';
-            font-size:20px;
+            font-size:25px;
             color:#00ff9c;
             margin-bottom:25px;
             text-align:center;
@@ -111,7 +111,10 @@ def check_login():
             st.markdown('<div class="subtitle">SISTEMA DE CONTROL VEHICULAR</div>', unsafe_allow_html=True)
 
             if os.path.exists("logo.png"):
-                st.image("logo.png", width=120)
+                st.markdown(
+                '<div style="text-align:center;"><img src="logo.png" width="120"></div>',
+                    unsafe_allow_html=True
+                 )
 
             st.markdown('<div class="label"><i class="fa-solid fa-user icon"></i>Usuario</div>', unsafe_allow_html=True)
             user = st.text_input("", placeholder="Ingrese su ID", label_visibility="collapsed")
