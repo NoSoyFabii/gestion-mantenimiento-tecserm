@@ -51,7 +51,7 @@ def check_login():
             .company-title {
                 font-family: 'Orbitron', sans-serif;
                 color: #00d4ff;
-                font-size: 38px; /* ¡Más grande! */
+                font-size: 58px; /* ¡Más grande! */
                 font-weight: 900;
                 margin: 0;
                 text-align: center;
@@ -60,7 +60,7 @@ def check_login():
             .system-subtitle {
                 font-family: 'Rajdhani', sans-serif;
                 color: #00ff87;
-                font-size: 20px; /* ¡Más grande! */
+                font-size: 40px; /* ¡Más grande! */
                 font-weight: 700;
                 text-transform: uppercase;
                 margin-top: 10px;
@@ -105,8 +105,6 @@ def check_login():
             </style>
         """, unsafe_allow_html=True)
 
-        # Contenedor para agrupar y centrar todo
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
         
         # 1. Recuadro con textos (Centrados y Grandes)
         st.markdown("""
