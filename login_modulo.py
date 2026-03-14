@@ -112,14 +112,15 @@ def check_login():
 
             if os.path.exists("logo.png"):
                 st.markdown("""
-                    <style>
-                    .logo-center {
-                        display: flex;
-                        justify-content: center;
-                        margin-top: 10px;
-                        margin-bottom: 15px;
-                    }
-                    </style>
+                <div style="
+                    width:100%;
+                    display:flex;
+                    justify-content:center;
+                    margin-top:10px;
+                    margin-bottom:20px;
+                ">
+                    <img src="logo.png" width="180">
+                </div>
                 """, unsafe_allow_html=True)
 
                 st.markdown('<div class="logo-center">', unsafe_allow_html=True)
