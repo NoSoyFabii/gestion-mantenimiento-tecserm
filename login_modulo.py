@@ -66,8 +66,9 @@ def check_login():
         }
 
         .icon{
-            margin-right:6px;
+            margin-right:8px;
             color:#00e5ff;
+            text-align:center;
         }
 
         /* INPUTS */
