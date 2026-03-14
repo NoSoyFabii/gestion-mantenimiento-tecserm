@@ -12,100 +12,126 @@ def check_login():
             <style>
             @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Rajdhani:wght@500;700&display=swap');
             
-            /* Limpieza de interfaz */
-            header, footer { visibility: hidden; }
-            
-            /* Estilo de la tarjeta principal */
-            .main-login-box {
-                background: #161b22;
-                padding: 30px;
-                border-radius: 15px;
-                border: 1px solid #30363d;
-                box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            /* 1. FONDO DIFUMINADO ANIMADO */
+            .stApp {
+                background: linear-gradient(-45deg, #0f172a, #1e1b4b, #2e1065, #1e1b4b);
+                background-size: 400% 400%;
+                animation: gradient 15s ease infinite;
+            }
+            @keyframes gradient {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+            }
+
+            /* 2. FORZAR CENTRADO ABSOLUTO */
+            [data-testid="stVerticalBlock"] {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+
+            /* 3. TARJETA MODERNA (Glassmorphism) */
+            .glass-card {
+                background: rgba(255, 255, 255, 0.05);
+                backdrop-filter: blur(10px);
+                border-radius: 20px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                padding: 40px;
+                width: 400px;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
                 text-align: center;
             }
 
-            /* RECUADRO SUPERIOR NEÓN */
-            .neon-header {
+            /* 4. RECUADRO SUPERIOR MODERNO */
+            .neon-border-box {
                 border: 2px solid #00d4ff;
+                border-radius: 12px;
                 padding: 15px;
-                border-radius: 10px;
-                box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
-                margin-bottom: 20px;
+                margin-bottom: 25px;
+                background: rgba(0, 212, 255, 0.05);
             }
 
-            .title-main {
+            .title-text {
                 font-family: 'Orbitron', sans-serif;
                 color: #00d4ff;
                 font-size: 24px;
                 font-weight: 900;
                 margin: 0;
+                text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
             }
 
-            .subtitle-main {
+            .subtitle-text {
                 font-family: 'Rajdhani', sans-serif;
-                color: #00ff87;
+                color: #34d399; /* Verde esmeralda */
                 font-size: 14px;
                 font-weight: 700;
-                text-transform: uppercase;
-                margin: 5px 0 0 0;
+                letter-spacing: 2px;
+                margin-top: 5px;
             }
 
-            /* Etiquetas de texto técnico */
-            .label-tech {
+            /* 5. INPUTS Y BOTÓN */
+            .label-modern {
                 font-family: 'Rajdhani', sans-serif;
-                color: #8b949e;
+                color: #94a3b8;
                 font-size: 12px;
-                font-weight: 700;
                 text-align: left;
                 text-transform: uppercase;
                 margin-top: 15px;
+                width: 100%;
             }
 
-            /* Botón de acceso */
             .stButton>button {
-                background: #00d4ff !important;
-                color: #0d1117 !important;
-                font-family: 'Orbitron', sans-serif !important;
-                font-weight: 900 !important;
+                background: linear-gradient(90deg, #00d4ff, #0072ff) !important;
+                color: white !important;
                 border: none !important;
-                padding: 12px !important;
-                margin-top: 25px !important;
-                box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3) !important;
+                border-radius: 10px !important;
+                font-family: 'Orbitron', sans-serif !important;
+                font-weight: bold !important;
+                height: 45px !important;
+                margin-top: 30px !important;
+                transition: 0.3s !important;
             }
+            
+            .stButton>button:hover {
+                box-shadow: 0 0 20px rgba(0, 212, 255, 0.6) !important;
+                transform: translateY(-2px);
+            }
+
+            header, footer { visibility: hidden; }
             </style>
         """, unsafe_allow_html=True)
 
-        # Usamos columnas para el centrado horizontal
-        _, col, _ = st.columns([0.6, 1, 0.6])
+        # Contenedor para agrupar todo
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         
-        with col:
-            st.markdown("<br><br>", unsafe_allow_html=True) # Espacio para bajarlo un poco
-            
-            # Recuadro Superior Neón
-            st.markdown("""
-                <div class="neon-header">
-                    <p class="title-main">TECSERM S.A.C</p>
-                    <p class="subtitle-main">Sistema de control de vehiculos</p>
-                </div>
-            """, unsafe_allow_html=True)
+        # Recuadro con textos
+        st.markdown("""
+            <div class="neon-border-box">
+                <p class="title-text">TECSERM S.A.C</p>
+                <p class="subtitle-text">Sistema de control de vehiculos</p>
+            </div>
+        """, unsafe_allow_html=True)
 
-            # Logo mediano (Usamos st.image directamente para evitar fallos)
-            if os.path.exists("logo.png"):
-                st.image("logo.png", width=180) 
-            
-            # Formulario
-            st.markdown('<p class="label-tech">Identificación de Usuario</p>', unsafe_allow_html=True)
-            user = st.text_input("User", label_visibility="collapsed", placeholder="Ingrese su ID")
-            
-            st.markdown('<p class="label-tech">Clave de Seguridad</p>', unsafe_allow_html=True)
-            password = st.text_input("Pass", type="password", label_visibility="collapsed", placeholder="••••••••")
-            
-            if st.button("ACCEDER AL SISTEMA", use_container_width=True):
-                if user in USUARIOS and USUARIOS[user] == password:
-                    st.session_state.autenticado = True
-                    st.rerun()
-                else:
-                    st.error("Credenciales incorrectas")
+        # Logo mediano
+        if os.path.exists("logo.png"):
+            st.image("logo.png", width=160)
+
+        # Entradas (sin emojis, estilo limpio)
+        st.markdown('<p class="label-modern">Identificación de Usuario</p>', unsafe_allow_html=True)
+        user = st.text_input("User", label_visibility="collapsed", placeholder="Username")
+        
+        st.markdown('<p class="label-modern">Clave de Seguridad</p>', unsafe_allow_html=True)
+        password = st.text_input("Pass", type="password", label_visibility="collapsed", placeholder="••••••••")
+        
+        if st.button("INGRESAR AL PANEL", use_container_width=True):
+            if user in USUARIOS and USUARIOS[user] == password:
+                st.session_state.autenticado = True
+                st.rerun()
+            else:
+                st.error("Credenciales no válidas")
+        
+        st.markdown('</div>', unsafe_allow_html=True)
 
         st.stop()
