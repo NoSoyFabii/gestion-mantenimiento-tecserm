@@ -61,7 +61,38 @@ def registrar_historial(codigo, accion, km, lugar="N/A"):
         supabase.table("historial").insert(data).execute()
     except Exception as e:
         st.error(f"Error al guardar historial: {e}")
+# --- 2.1 CONFIGURACIÓN DE USUARIOS ---
+USUARIOS = {
+    "admin": "tecserm2026",
+    "logistica": "log2026"
+}
 
+# Inicializar estado de autenticación
+if "autenticado" not in st.session_state:
+    st.session_state.autenticado = False
+
+def pantalla_login():
+    _, col_central, _ = st.columns([1, 1.2, 1])
+    with col_central:
+        st.markdown("<br><br>", unsafe_allow_html=True)
+        st.markdown('<div class="login-box">', unsafe_allow_html=True)
+        if os.path.exists("logo.png"):
+            st.image("logo.png", width=200)
+        st.markdown('<h2 style="font-family:Orbitron; color:#58a6ff;">INICIAR SESIÓN</h2>', unsafe_allow_html=True)
+        
+        user = st.text_input("Usuario")
+        ver_clave = st.checkbox("👁️ Mostrar contraseña")
+        password = st.text_input("Contraseña", type="text" if ver_clave else "password")
+        
+        if st.button("🚀 INGRESAR"):
+            if user in USUARIOS and USUARIOS[user] == password:
+                st.session_state.autenticado = True
+                st.success("Acceso concedido")
+                time.sleep(1)
+                st.rerun()
+            else:
+                st.error("Usuario o contraseña incorrectos")
+        st.markdown('</div>', unsafe_allow_html=True)
 # --- 3. DISEÑO CSS ADAPTATIVO (CLARO/OSCURO) ---
 st.markdown("""
 <style>
@@ -116,6 +147,23 @@ st.markdown("""
         font-family: 'Orbitron', sans-serif !important;
         transition: 0.3s !important;
     }
+            /* Estilos específicos para el Login */
+    .login-box {
+        background: var(--background-secondary-color);
+        padding: 40px;
+        border-radius: 20px;
+        border: 1px solid rgba(31, 111, 235, 0.3);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        text-align: center;
+    }
+    .login-logo {
+        margin-bottom: 20px;
+        filter: drop-shadow(0 0 10px rgba(31, 111, 235, 0.5));
+    }
+    .stTextInput > div > div > input {
+        background-color: rgba(128, 128, 128, 0.1) !important;
+        border-radius: 10px !important;
+    }
 
     /* Ajuste para que los labels se lean bien siempre */
     label, .stMarkdown p {
@@ -125,24 +173,35 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- 4. BARRA LATERAL ---
-with st.sidebar:
-    if os.path.exists("logo.png"):
-        st.image("logo.png", use_container_width=True)
-    st.markdown('<div style="text-align:center; font-family:\'Orbitron\'; font-weight:bold; color:#58a6ff; letter-spacing:2px;"></div>', unsafe_allow_html=True)
-    
-    selected = option_menu(
-        menu_title=None,
-        options=["Panel Control", "Registrar KM", "Nueva Unidad", "Mantenimiento", "Historial", "Ajustes"],
-        icons=["grid-fill", "speedometer", "plus-circle", "tools", "clock-history", "gear"],
-        default_index=0,
-        styles={
-            "nav-link": {"font-family": "Rajdhani", "font-size": "18px", "text-align": "left"},
-            "nav-link-selected": {"background-color": "#1f6feb"}
-        }
-    )
+# --- CONTROL DE ACCESO ---
+if not st.session_state.autenticado:
+    pantalla_login()
+else:
+    # TODO ESTO TIENE UN ESPACIO A LA IZQUIERDA (SANGRE)
+    # --- 4. BARRA LATERAL ---
+    with st.sidebar:
+        if os.path.exists("logo.png"):
+            st.image("logo.png", use_container_width=True)
+        
+        selected = option_menu(
+            menu_title=None,
+            options=["Panel Control", "Registrar KM", "Nueva Unidad", "Mantenimiento", "Historial", "Ajustes"],
+            icons=["grid-fill", "speedometer", "plus-circle", "tools", "clock-history", "gear"],
+            default_index=0,
+            styles={
+                "nav-link-selected": {"background-color": "#1f6feb"}
+            }
+        )
+        st.markdown("---")
+        if st.button("🚪 CERRAR SESIÓN", use_container_width=True):
+            st.session_state.autenticado = False
+            st.rerun()
 
-st.markdown('<div class="main-title">GESTIÓN DE MANTENIMIENTO PREVENTIVO</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">GESTIÓN DE MANTENIMIENTO PREVENTIVO</div>', unsafe_allow_html=True)
+
+    # --- 5. VISTAS ---
+    if selected == "Panel Control":
+        # (Aquí sigue el resto de tu código, todo con un tab de distancia del borde)
 
 # --- 5. VISTAS ---
 
@@ -242,7 +301,7 @@ elif selected == "Historial":
         proximo_manto = km_inicio + frecuencia
         faltante = proximo_manto - km_actual
         
-        # --- DISEÑO DE MÉTRICAS (ORDEN SOLICITADO) ---
+        # --- DISEÑO DE MÉTRICAS 
         col1, col2, col3 = st.columns(3)
         
         # 1. INICIO
@@ -268,7 +327,7 @@ elif selected == "Historial":
         if not hist.empty:
             hist_filtrado = hist[hist['codigo_tcs'] == u_busq].copy()
             
-            # Ordenar para que lo más reciente aparezca arriba
+            
             hist_filtrado = hist_filtrado.sort_index(ascending=False)
             
             st.dataframe(
@@ -323,7 +382,6 @@ elif selected == "Ajustes":
 
                     # FORMATOS
                     header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1f6feb', 'font_color': 'white', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-                    # Formato transparente para el logo (sin bordes)
                     logo_fmt = workbook.add_format({'align': 'center', 'valign': 'vcenter','border': 0})
                     cell_center = workbook.add_format({'align': 'center', 'valign': 'vcenter', 'border': 1})
                     title_fmt = workbook.add_format({'bold': True, 'font_size': 14, 'font_color': '#1f6feb', 'align': 'center', 'valign': 'vcenter'})
