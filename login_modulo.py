@@ -8,79 +8,82 @@ def check_login():
         st.session_state.autenticado = False
 
     if not st.session_state.autenticado:
-        # Estilos CSS Avanzados para un look moderno
+        # CSS para diseño vivo, compacto y sin scroll
         st.markdown("""
             <style>
-            @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;400;600&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Rajdhani:wght@600&display=swap');
             
-            #MainMenu {visibility: hidden;}
-            header {visibility: hidden;}
-            footer {visibility: hidden;}
+            /* Eliminar scroll y márgenes extra */
+            .main { overflow: hidden; }
+            .block-container { padding-top: 2rem !important; }
             
-            .login-box {
-                background-color: rgba(22, 27, 34, 0.8);
-                padding: 40px;
-                border-radius: 20px;
-                border: 1px solid #30363d;
-                box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            /* Contenedor principal con borde neón */
+            .login-card {
+                background: linear-gradient(145deg, #0d1117, #161b22);
+                padding: 30px;
+                border-radius: 15px;
+                border: 2px solid #00d4ff;
+                box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
                 text-align: center;
             }
+
+            .stTextInput font { color: #00d4ff !important; }
             
-            .login-title {
+            /* Título vibrante */
+            .vibrant-title {
                 font-family: 'Orbitron', sans-serif;
-                color: #58a6ff;
-                font-size: 24px;
-                font-weight: 700;
-                margin-top: 20px;
-                letter-spacing: 2px;
-                text-transform: uppercase;
+                background: linear-gradient(90deg, #00d4ff, #00ff87);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                font-size: 26px;
+                font-weight: 900;
+                margin-bottom: 5px;
+                text-shadow: 2px 2px 10px rgba(0, 212, 255, 0.5);
             }
-            
-            .login-subtitle {
-                font-family: 'Inter', sans-serif;
-                color: #8b949e;
-                font-size: 14px;
-                margin-bottom: 30px;
+
+            /* Botón Neón */
+            .stButton>button {
+                background: linear-gradient(90deg, #0072ff, #00d4ff) !important;
+                color: white !important;
+                border: none !important;
+                font-family: 'Orbitron', sans-serif !important;
+                font-weight: bold !important;
+                box-shadow: 0 4px 15px rgba(0, 114, 255, 0.4) !important;
+                transition: 0.3s !important;
+            }
+            .stButton>button:hover {
+                transform: scale(1.02);
+                box-shadow: 0 4px 20px rgba(0, 212, 255, 0.6) !important;
             }
             </style>
         """, unsafe_allow_html=True)
 
-        # Centrado vertical y horizontal
-        _, col, _ = st.columns([0.6, 1, 0.6])
+        # Layout centrado y compacto
+        _, col, _ = st.columns([0.8, 1, 0.8])
         
         with col:
-            st.markdown("<br><br>", unsafe_allow_html=True)
-            
+            # Contenedor visual
             with st.container():
-                # Centrado del LOGO (Método seguro)
+                # Logo más pequeño y centrado
                 if os.path.exists("logo.png"):
-                    # Usamos columnas internas para centrar la imagen nativa
-                    c1, c2, c3 = st.columns([0.2, 1, 0.2])
-                    with c2:
-                        st.image("logo.png", use_container_width=True)
+                    sub_c1, sub_c2, sub_c3 = st.columns([1, 1.2, 1])
+                    with sub_c2:
+                        st.image("logo.png", width=140) # Tamaño reducido
                 
-                st.markdown('<p class="login-title">TECSERM S.A.C</p>', unsafe_allow_html=True)
-                st.markdown('<p class="login-subtitle">SISTEMA DE GESTIÓN DE MANTENIMIENTO</p>', unsafe_allow_html=True)
+                st.markdown('<p class="vibrant-title">TECSERM 2026</p>', unsafe_allow_html=True)
+                st.markdown("<p style='color: #00ff87; font-family: Rajdhani; font-size: 14px; margin-bottom: 20px;'>SISTEMA DE CONTROL DE ACTIVOS</p>", unsafe_allow_html=True)
                 
-                # Campos de texto con diseño limpio
-                user = st.text_input("USER ID", placeholder="Ingrese usuario")
-                password = st.text_input("PASSWORD", type="password", placeholder="••••••••")
+                # Formulario
+                user = st.text_input("USUARIO", placeholder="👤 ID de empleado")
+                password = st.text_input("CONTRASEÑA", type="password", placeholder="🔑 ••••••••")
                 
                 st.markdown("<br>", unsafe_allow_html=True)
                 
-                # Botón con estilo "Primary"
-                if st.button("ACCEDER AL SISTEMA", use_container_width=True, type="primary"):
+                if st.button("ACCESO SEGURO", use_container_width=True):
                     if user in USUARIOS and USUARIOS[user] == password:
                         st.session_state.autenticado = True
                         st.rerun()
                     else:
-                        st.error("Credenciales no autorizadas")
-            
-            # Footer decorativo
-            st.markdown(
-                "<p style='text-align: center; color: #30363d; font-size: 10px; margin-top: 50px;'>"
-                "&copy; 2026 TECSERM S.A.C | Seguridad de Datos de Activos</p>", 
-                unsafe_allow_html=True
-            )
+                        st.error("Acceso Denegado")
 
         st.stop()
