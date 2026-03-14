@@ -111,9 +111,9 @@ def check_login():
             st.markdown('<div class="subtitle">SISTEMA DE CONTROL VEHICULAR</div>', unsafe_allow_html=True)
 
             if os.path.exists("logo.png"):
-                c1, c2, c3 = st.columns([2,1,2])
+                c1, c2, c3 = st.columns([1,3,1])
                 with c2:
-                    st.image("logo.png", width=700)
+                    st.image("logo.png", width=220)
 
             st.markdown('<div class="logo-center">', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
