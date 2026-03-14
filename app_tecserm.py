@@ -6,15 +6,8 @@ from datetime import datetime
 from streamlit_option_menu import option_menu
 import io
 from supabase import create_client, Client
+from login_modulo import check_login
 
-# --- ABAJO DE LAS IMPORTACIONES ---
-USUARIOS = {
-    "admin": "tecserm2026",
-    "logistica": "log2026"
-}
-
-if "autenticado" not in st.session_state:
-    st.session_state.autenticado = False 
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 if os.path.exists("logo.png"):
     st.set_page_config(page_title="TECSERM S.A.C 2026", page_icon="logo.png", layout="wide")
@@ -70,31 +63,8 @@ def registrar_historial(codigo, accion, km, lugar="N/A"):
     except Exception as e:
         st.error(f"Error al guardar historial: {e}")
 
-def pantalla_login():
-    # Centramos el formulario
-    _, col, _ = st.columns([1, 0.8, 1])
-    with col:
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        st.markdown('<div style="background:#161b22; padding:30px; border-radius:15px; border:1px solid #30363d; text-align:center;">', unsafe_allow_html=True)
-        if os.path.exists("logo.png"):
-            st.image("logo.png", width=180)
-        
-        st.subheader("Acceso al Sistema")
-        user = st.text_input("Usuario")
-        password = st.text_input("Contraseña", type="password")
-        
-        if st.button("INGRESAR", use_container_width=True):
-            if user in USUARIOS and USUARIOS[user] == password:
-                st.session_state.autenticado = True
-                st.rerun() # Recarga para mostrar el contenido
-            else:
-                st.error("Usuario o contraseña incorrectos")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        if not st.session_state.autenticado:
-            pantalla_login()
-        else:
-            st.markdown("""
+# --- 3. DISEÑO CSS ADAPTATIVO (CLARO/OSCURO) ---
+st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;600;700&display=swap');
     
@@ -157,9 +127,11 @@ def pantalla_login():
 """, unsafe_allow_html=True)
 
 # --- 4. BARRA LATERAL ---
+
 with st.sidebar:
     if os.path.exists("logo.png"):
         st.image("logo.png", use_container_width=True)
+    
     st.markdown('<div style="text-align:center; font-family:\'Orbitron\'; font-weight:bold; color:#58a6ff; letter-spacing:2px;"></div>', unsafe_allow_html=True)
     
     selected = option_menu(
@@ -173,12 +145,13 @@ with st.sidebar:
         }
     )
 
+    # --- AQUÍ AÑADES EL BOTÓN DE CERRAR SESIÓN ---
+    st.markdown("---") # Una línea divisoria para que se vea ordenado
+    if st.button("🚪 CERRAR SESIÓN", use_container_width=True):
+        st.session_state.autenticado = False
+        st.rerun()
+
 st.markdown('<div class="main-title">GESTIÓN DE MANTENIMIENTO PREVENTIVO</div>', unsafe_allow_html=True)
-# --- DENTRO DE WITH ST.SIDEBAR ---
-st.markdown("---")
-if st.button("🚪 CERRAR SESIÓN", use_container_width=True):
-    st.session_state.autenticado = False
-    st.rerun()
 
 # --- 5. VISTAS ---
 
@@ -408,4 +381,3 @@ elif selected == "Ajustes":
                 ejecutar_query("DELETE FROM vehiculos", (target,))
                 st.success("Unidad eliminada.")
                 st.rerun()
-    
