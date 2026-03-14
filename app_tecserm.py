@@ -9,8 +9,11 @@ from supabase import create_client, Client
 from login_modulo import check_login
 
 def cerrar_sesion():
-    st.session_state.autenticado = False
-    # No hace falta st.rerun() aquí, Streamlit recargará solo al terminar la función
+    # Limpia todo el estado de la sesión
+    for key in st.session_state.keys():
+        del st.session_state[key]
+    
+    
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 if os.path.exists("logo.png"):
     st.set_page_config(page_title="TECSERM S.A.C 2026", page_icon="logo.png", layout="wide")
