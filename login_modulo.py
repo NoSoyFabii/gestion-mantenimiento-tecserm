@@ -111,10 +111,20 @@ def check_login():
             st.markdown('<div class="subtitle">SISTEMA DE CONTROL VEHICULAR</div>', unsafe_allow_html=True)
 
             if os.path.exists("logo.png"):
-                col1, col2, col3 = st.columns([1,2,1])
+                st.markdown("""
+                    <style>
+                    .logo-center {
+                        display: flex;
+                        justify-content: center;
+                        margin-top: 10px;
+                        margin-bottom: 15px;
+                    }
+                    </style>
+                """, unsafe_allow_html=True)
 
-                with col2:
-                    st.image("logo.png", width=120)
+                st.markdown('<div class="logo-center">', unsafe_allow_html=True)
+                st.image("logo.png", width=170)
+                st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown('<div class="label"><i class="fa-solid fa-user icon"></i>Usuario</div>', unsafe_allow_html=True)
             user = st.text_input("", placeholder="Ingrese su ID", label_visibility="collapsed")
