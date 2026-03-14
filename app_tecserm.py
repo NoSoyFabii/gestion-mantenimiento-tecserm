@@ -8,6 +8,9 @@ import io
 from supabase import create_client, Client
 from login_modulo import check_login
 
+def cerrar_sesion():
+    st.session_state.autenticado = False
+    st.rerun()
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 if os.path.exists("logo.png"):
     st.set_page_config(page_title="TECSERM S.A.C 2026", page_icon="logo.png", layout="wide")
@@ -146,10 +149,9 @@ with st.sidebar:
     )
 
     # --- AQUÍ AÑADES EL BOTÓN DE CERRAR SESIÓN ---
-    st.markdown("---") # Una línea divisoria para que se vea ordenado
-    if st.button("🚪 CERRAR SESIÓN", use_container_width=True):
-        st.session_state.autenticado = False
-        st.rerun()
+    st.markdown("---") # Separador visual
+    # Usamos on_click para asegurar que la función se ejecute al instante
+    st.button("🚪 CERRAR SESIÓN", use_container_width=True, on_click=cerrar_sesion)
 
 st.markdown('<div class="main-title">GESTIÓN DE MANTENIMIENTO PREVENTIVO</div>', unsafe_allow_html=True)
 
