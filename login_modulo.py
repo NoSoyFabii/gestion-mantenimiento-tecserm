@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 
-st.set_page_config(page_title="Sistema de Control Vehicular", layout="centered")
+st.set_page_config(page_title="Sistema Vehicular", layout="wide")
 
 USUARIOS = {"admin": "tecserm2026", "logistica": "log2026"}
 
@@ -21,68 +21,54 @@ def check_login():
 
         header, footer, #MainMenu {visibility:hidden;}
 
+        /* FONDO */
         .stApp{
-            background: radial-gradient(circle at top,#071426,#020617);
+            background: radial-gradient(circle at center,#081426,#020617);
         }
 
-        /* CONTENEDOR CENTRADO */
-        .block-container{
-            display:flex;
-            justify-content:center;
-            padding-top:8vh;
-        }
-
-        /* TARJETA ANGOSTA */
+        /* TARJETA */
         .login-card{
-            width:380px;
+            width:360px;
             background:#0b1220;
             padding:40px;
             border-radius:18px;
             border:1px solid #1f2937;
-            box-shadow:0 25px 60px rgba(0,0,0,0.6);
+            box-shadow:0 30px 60px rgba(0,0,0,0.6);
             text-align:center;
         }
 
         /* TITULO */
-        .login-title{
+        .title{
             font-family:'Orbitron';
-            font-size:44px;
+            font-size:42px;
             font-weight:800;
             color:#00e5ff;
             margin-bottom:5px;
         }
 
         /* SUBTITULO */
-        .login-sub{
+        .subtitle{
             font-family:'Rajdhani';
             font-size:20px;
             color:#00ff9c;
-            margin-bottom:30px;
-            letter-spacing:1px;
+            margin-bottom:25px;
         }
 
-        /* LOGO */
-        .logo img{
-            margin:auto;
-            display:block;
-            margin-bottom:15px;
-        }
-
-        /* LABEL */
-        .input-label{
+        /* LABELS */
+        .label{
             text-align:left;
             font-family:'Rajdhani';
-            color:#94a3b8;
+            color:#9ca3af;
             font-weight:700;
-            margin-top:15px;
+            margin-top:12px;
         }
 
         .icon{
-            margin-right:8px;
+            margin-right:6px;
             color:#00e5ff;
         }
 
-        /* INPUT */
+        /* INPUTS */
         .stTextInput input{
             background:#020617;
             border:1px solid #334155;
@@ -97,9 +83,9 @@ def check_login():
             border:none;
             font-family:'Orbitron';
             font-weight:700;
-            height:48px;
+            height:46px;
             border-radius:10px;
-            margin-top:25px;
+            margin-top:20px;
             color:white;
             transition:0.3s;
         }
@@ -112,33 +98,33 @@ def check_login():
         </style>
         """, unsafe_allow_html=True)
 
+        # COLUMNAS PARA CENTRAR
+        col1, col2, col3 = st.columns([1,1,1])
 
-        st.markdown('<div class="login-card">', unsafe_allow_html=True)
+        with col2:
 
-        st.markdown("""
-        <div class="login-title">INICIAR SESIÓN</div>
-        <div class="login-sub">SISTEMA DE CONTROL VEHICULAR</div>
-        """, unsafe_allow_html=True)
+            st.markdown('<div class="login-card">', unsafe_allow_html=True)
 
-        if os.path.exists("logo.png"):
-            st.markdown('<div class="logo">', unsafe_allow_html=True)
-            st.image("logo.png", width=130)
-            st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('<div class="title">INICIAR SESIÓN</div>', unsafe_allow_html=True)
+            st.markdown('<div class="subtitle">SISTEMA DE CONTROL VEHICULAR</div>', unsafe_allow_html=True)
 
-        st.markdown('<div class="input-label"><i class="fa-solid fa-user icon"></i>Usuario</div>', unsafe_allow_html=True)
-        user = st.text_input("", placeholder="Ingrese su ID de acceso", label_visibility="collapsed")
+            if os.path.exists("logo.png"):
+                st.image("logo.png", width=120)
 
-        st.markdown('<div class="input-label"><i class="fa-solid fa-lock icon"></i>Contraseña</div>', unsafe_allow_html=True)
-        password = st.text_input("", type="password", placeholder="Ingrese su contraseña", label_visibility="collapsed")
+            st.markdown('<div class="label"><i class="fa-solid fa-user icon"></i>Usuario</div>', unsafe_allow_html=True)
+            user = st.text_input("", placeholder="Ingrese su ID", label_visibility="collapsed")
 
-        if st.button("ACCEDER AL SISTEMA", use_container_width=True):
+            st.markdown('<div class="label"><i class="fa-solid fa-lock icon"></i>Contraseña</div>', unsafe_allow_html=True)
+            password = st.text_input("", type="password", placeholder="Ingrese su contraseña", label_visibility="collapsed")
 
-            if user in USUARIOS and USUARIOS[user] == password:
-                st.session_state.autenticado = True
-                st.rerun()
-            else:
-                st.error("Usuario o contraseña incorrectos")
+            if st.button("ACCEDER AL SISTEMA", use_container_width=True):
 
-        st.markdown("</div>", unsafe_allow_html=True)
+                if user in USUARIOS and USUARIOS[user] == password:
+                    st.session_state.autenticado = True
+                    st.rerun()
+                else:
+                    st.error("Usuario o contraseña incorrectos")
+
+            st.markdown("</div>", unsafe_allow_html=True)
 
         st.stop()
