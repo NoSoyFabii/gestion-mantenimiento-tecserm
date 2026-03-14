@@ -44,6 +44,7 @@ def check_login():
             font-weight:800;
             color:#00e5ff;
             margin-bottom:5px;
+            text-align:center;
         }
 
         /* SUBTITULO */
@@ -52,6 +53,7 @@ def check_login():
             font-size:20px;
             color:#00ff9c;
             margin-bottom:25px;
+            text-align:center;
         }
 
         /* LABELS */
@@ -103,7 +105,6 @@ def check_login():
 
         with col2:
 
-            st.markdown('<div class="login-card">', unsafe_allow_html=True)
 
             st.markdown('<div class="title">INICIAR SESIÓN</div>', unsafe_allow_html=True)
             st.markdown('<div class="subtitle">SISTEMA DE CONTROL VEHICULAR</div>', unsafe_allow_html=True)
