@@ -113,10 +113,9 @@ def check_login():
             if os.path.exists("logo.png"):
                 c1, c2, c3 = st.columns([2,1,2])
                 with c2:
-                    st.image("logo.png", width=180)
+                    st.image("logo.png", width=350)
 
             st.markdown('<div class="logo-center">', unsafe_allow_html=True)
-            st.image("logo.png", width=170)
             st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown('<div class="label"><i class="fa-solid fa-user icon"></i>Usuario</div>', unsafe_allow_html=True)
