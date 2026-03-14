@@ -10,7 +10,7 @@ from login_modulo import check_login
 
 def cerrar_sesion():
     st.session_state.autenticado = False
-    st.rerun()
+    # No hace falta st.rerun() aquí, Streamlit recargará solo al terminar la función
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 if os.path.exists("logo.png"):
     st.set_page_config(page_title="TECSERM S.A.C 2026", page_icon="logo.png", layout="wide")
@@ -148,9 +148,7 @@ with st.sidebar:
         }
     )
 
-    # --- AQUÍ AÑADES EL BOTÓN DE CERRAR SESIÓN ---
-    st.markdown("---") # Separador visual
-    # Usamos on_click para asegurar que la función se ejecute al instante
+    st.markdown("---")
     st.button("🚪 CERRAR SESIÓN", use_container_width=True, on_click=cerrar_sesion)
 
 st.markdown('<div class="main-title">GESTIÓN DE MANTENIMIENTO PREVENTIVO</div>', unsafe_allow_html=True)
