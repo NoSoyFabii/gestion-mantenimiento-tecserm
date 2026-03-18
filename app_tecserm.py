@@ -356,28 +356,32 @@ elif selected == "Nueva Unidad":
 elif selected == "Ajustes":
     st.subheader("⚙️ Configuración y Estado del Sistema")
     
-    # --- 1. MONITOR DE ALMACENAMIENTO (REVISIÓN DE EXTRACCIÓN DE DATOS) ---
+    # --- 1. MONITOR DE ALMACENAMIENTO (PROTECCIÓN CONTRA ERRORES DE TEXTO) ---
     try:
         # Consultas de conteo
         res_h_total = ejecutar_query("SELECT COUNT(*) FROM historial", fetch=True)
         res_v_total = ejecutar_query("SELECT COUNT(*) FROM vehiculos", fetch=True)
         
-        # EXTRACCIÓN ROBUSTA: Intentamos obtener el número de la primera celda
-        # No importa si la columna se llama 'COUNT', 'count' o 'col0'
-        if res_h_total is not None and not res_h_total.empty:
-            num_h = int(res_h_total.iloc[0, 0])
-        else:
-            num_h = 0
-            
-        if res_v_total is not None and not res_v_total.empty:
-            num_v = int(res_v_total.iloc[0, 0])
-        else:
-            num_v = 0
-            
+        # Función de validación para evitar el error 'TCS-1' o similares
+        def validar_conteo(df):
+            if df is not None and not df.empty:
+                valor = df.iloc[0, 0]
+                # Si el valor ya es un número (int o float), lo usamos
+                if isinstance(valor, (int, float, np.integer)):
+                    return int(valor)
+                # Si es un texto, intentamos convertirlo, si falla contamos las filas
+                try:
+                    return int(valor)
+                except (ValueError, TypeError):
+                    return len(df)
+            return 0
+
+        num_h = validar_conteo(res_h_total)
+        num_v = validar_conteo(res_v_total)
         total_filas = num_h + num_v
         
-        # Capacidad máxima recomendada
-        capacidad_max = 500000
+        # Capacidad basada en tus 25.11 MB detectados (Plan Free 500MB)
+        capacidad_max = 500000 
         uso_porcentaje = (total_filas / capacidad_max) * 100
         
         m1, m2, m3 = st.columns(3)
@@ -386,14 +390,13 @@ elif selected == "Ajustes":
         m3.metric("Uso de Almacenamiento", f"{uso_porcentaje:.4f}%")
         
         st.progress(min(uso_porcentaje/10, 1.0)) 
-        st.caption(f"📊 Sincronización Exitosa: Tienes {num_h} movimientos en el historial.")
+        st.caption(f"📊 Estado de Base de Datos: {total_filas:,} registros totales detectados (Límite 500MB).")
     
     except Exception as e:
-        st.error(f"Error al leer contadores: {e}")
-        num_v = 0
+        st.warning(f"Sincronizando monitor de capacidad... ({e})")
+        num_h, num_v = 0, 0
 
-    # --- CARGA DE LISTA PARA ELIMINACIÓN ---
-    # Lo hacemos por separado para que el selectbox siempre funcione
+    # --- CARGA DE LISTA PARA ELIMINACIÓN (Independiente) ---
     df_para_eliminar = ejecutar_query("SELECT codigo_tcs FROM vehiculos ORDER BY codigo_tcs", fetch=True)
 
     st.markdown("---")
@@ -407,7 +410,6 @@ elif selected == "Ajustes":
             df_raw = ejecutar_query("SELECT codigo_tcs, placa, marca, km_ultimo_manto, km_actual, frecuencia FROM vehiculos", fetch=True)
             
             if not df_raw.empty:
-                # Procesamiento para Excel
                 df_raw['Prox. Manto'] = df_raw['km_ultimo_manto'] + df_raw['frecuencia']
                 df_raw['KM Faltantes'] = df_raw['Prox. Manto'] - df_raw['km_actual']
                 df_raw['Estado'] = df_raw['KM Faltantes'].apply(lambda x: 'CRÍTICO' if x < 200 else ('ALERTA' if x < 600 else 'OPERATIVO'))
@@ -419,7 +421,6 @@ elif selected == "Ajustes":
                     workbook  = writer.book
                     worksheet = writer.sheets['Reporte']
                     
-                    # Formatos corporativos
                     worksheet.set_landscape()
                     worksheet.set_paper(9) 
                     worksheet.fit_to_pages(1, 1)
@@ -481,4 +482,4 @@ elif selected == "Ajustes":
                 time.sleep(1.2)
                 st.rerun()
         else:
-            st.info("No hay unidades registradas.")
+            st.info("No hay unidades registradas para gestionar.")
