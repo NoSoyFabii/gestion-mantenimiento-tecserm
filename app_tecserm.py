@@ -356,16 +356,19 @@ elif selected == "Nueva Unidad":
 elif selected == "Ajustes":
     st.subheader("⚙️ Configuración y Estado del Sistema")
     
-    # --- 1. MONITOR DE ALMACENAMIENTO (CORREGIDO PARA EVITAR TYPEERROR) ---
+    # --- 1. MONITOR DE ALMACENAMIENTO (CORREGIDO PARA CONTEO TOTAL REAL) ---
     try:
-        # Traemos los datos para contar las filas físicamente
-        df_historial_status = ejecutar_query("SELECT * FROM historial", fetch=True)
-        df_vehiculos_status = ejecutar_query("SELECT * FROM vehiculos", fetch=True)
+        # Pedimos el conteo exacto directamente a la base de datos para ver el total real
+        res_h_total = ejecutar_query("SELECT COUNT(*) as total FROM historial", fetch=True)
+        res_v_total = ejecutar_query("SELECT COUNT(*) as total FROM vehiculos", fetch=True)
         
-        # Obtenemos los números enteros de filas
-        num_h = len(df_historial_status) if df_historial_status is not None else 0
-        num_v = len(df_vehiculos_status) if df_vehiculos_status is not None else 0
+        # Extraemos el número del resultado de la consulta
+        num_h = int(res_h_total.iloc[0]['total']) if not res_h_total.empty else 0
+        num_v = int(res_v_total.iloc[0]['total']) if not res_v_total.empty else 0
         total_filas = num_h + num_v
+        
+        # Para la lista de eliminación, seguimos necesitando los datos de los vehículos
+        df_vehiculos_status = ejecutar_query("SELECT codigo_tcs FROM vehiculos", fetch=True)
         
         # Cálculo de capacidad (Límite estimado de 500,000 registros para 500MB)
         capacidad_max = 500000
@@ -383,27 +386,23 @@ elif selected == "Ajustes":
     
     except Exception as e:
         st.error(f"No se pudo cargar el monitor de capacidad: {e}")
-        num_v = 0 # Fallback para evitar errores en la parte de abajo
         df_vehiculos_status = pd.DataFrame()
 
     st.markdown("---")
 
-    # --- 2. COLUMNAS DE ACCIONES ---
+    # --- 2. COLUMNAS DE ACCIONES (SIN MODIFICAR LÓGICA ANTERIOR) ---
     c1, c2 = st.columns(2)
     
     with c1:
         st.markdown("### Exportar Reporte Ejecutivo")
         if st.button("📊 GENERAR EXCEL CORPORATIVO"):
-            # Usamos una query específica para el reporte
             df_raw = ejecutar_query("SELECT codigo_tcs, placa, marca, km_ultimo_manto, km_actual, frecuencia FROM vehiculos", fetch=True)
             
             if not df_raw.empty:
-                # Cálculos del reporte
                 df_raw['Prox. Manto'] = df_raw['km_ultimo_manto'] + df_raw['frecuencia']
                 df_raw['KM Faltantes'] = df_raw['Prox. Manto'] - df_raw['km_actual']
                 df_raw['Estado'] = df_raw['KM Faltantes'].apply(lambda x: 'CRÍTICO' if x < 200 else ('ALERTA' if x < 600 else 'OPERATIVO'))
                 
-                # Renombrar para el Excel
                 df_raw.columns = ['CÓDIGO', 'PLACA', 'MARCA', 'U. MANTO (KM)', 'KM ACTUAL', 'FRECUENCIA', 'PRÓX. MANTO', 'FALTAN (KM)', 'ESTADO']
 
                 output = io.BytesIO()
@@ -412,14 +411,12 @@ elif selected == "Ajustes":
                     workbook  = writer.book
                     worksheet = writer.sheets['Reporte']
 
-                    # CONFIGURACIÓN DE IMPRESIÓN
                     worksheet.set_landscape()
-                    worksheet.set_paper(9) # A4
+                    worksheet.set_paper(9) 
                     worksheet.fit_to_pages(1, 1)
                     worksheet.set_margins(0.3, 0.3, 0.3, 0.3)
                     worksheet.hide_gridlines(2)
 
-                    # FORMATOS
                     header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1f6feb', 'font_color': 'white', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
                     cell_center = workbook.add_format({'align': 'center', 'valign': 'vcenter', 'border': 1})
                     title_fmt = workbook.add_format({'bold': True, 'font_size': 14, 'font_color': '#1f6feb', 'align': 'center', 'valign': 'vcenter'})
@@ -427,11 +424,9 @@ elif selected == "Ajustes":
                     firma_fmt = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 10})
                     cargo_fmt = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 9, 'top': 1})
 
-                    # LOGO Y ENCABEZADO
                     if os.path.exists("logo.png"):
                         worksheet.insert_image('A1', 'logo.png', {'x_scale': 0.10, 'y_scale': 0.10, 'x_offset': 35, 'y_offset': 10})
 
-                    # HORA DE PERÚ PARA EL REPORTE
                     tz_pe = pytz.timezone('America/Lima')
                     fecha_pe = datetime.now(tz_pe).strftime('%d/%m/%Y %H:%M')
 
@@ -439,21 +434,19 @@ elif selected == "Ajustes":
                     worksheet.merge_range('C3:I3', f"Fecha de Emisión: {fecha_pe}", info_fmt)
                     worksheet.merge_range('C4:I4', "MANTENIMIENTO PREVENTIVO UNIDADES - TECSERM S.A.C. 2026", info_fmt)
 
-                    # ESCRIBIR TABLA
                     for col_num, value in enumerate(df_raw.columns.values):
                         worksheet.write(5, col_num, value, header_fmt)
                         worksheet.set_column(col_num, col_num, 15)
 
                     for row_num, row_data in enumerate(df_raw.values):
                         for col_num, cell_value in enumerate(row_data):
-                            if col_num == 8: # Semáforo de colores para el ESTADO
+                            if col_num == 8:
                                 color = '#3fb950' if cell_value == 'OPERATIVO' else ('#d29922' if cell_value == 'ALERTA' else '#f85149')
                                 est_fmt = workbook.add_format({'bg_color': color, 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
                                 worksheet.write(row_num + 6, col_num, cell_value, est_fmt)
                             else:
                                 worksheet.write(row_num + 6, col_num, cell_value, cell_center)
 
-                    # SECCIÓN DE FIRMAS
                     f_idx = len(df_raw) + 9
                     worksheet.merge_range(f_idx, 1, f_idx, 3, "V°B° LOGISTICA", cargo_fmt)
                     worksheet.merge_range(f_idx + 1, 1, f_idx + 1, 3, "JUAN CARLOS ZEGARRA LOPEZ", firma_fmt)
@@ -469,15 +462,11 @@ elif selected == "Ajustes":
 
     with c2:
         st.markdown("### Gestión de Datos")
-        # Usamos el dataframe que cargamos al inicio de Ajustes
         if df_vehiculos_status is not None and not df_vehiculos_status.empty:
             target = st.selectbox("Seleccione Unidad para eliminar:", df_vehiculos_status['codigo_tcs'])
-            
-            # Checkbox de seguridad
             confirmar = st.checkbox(f"Confirmo que deseo borrar permanentemente la unidad {target}")
             
             if st.button("❌ ELIMINAR UNIDAD", type="primary", disabled=not confirmar):
-                # Borramos la unidad (Se recomienda borrar historial asociado también si se desea limpieza total)
                 ejecutar_query("DELETE FROM vehiculos WHERE codigo_tcs = %s", (target,))
                 st.success(f"La unidad {target} ha sido eliminada del sistema.")
                 time.sleep(1.5)
