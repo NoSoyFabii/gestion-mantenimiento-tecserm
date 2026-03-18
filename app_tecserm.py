@@ -356,35 +356,54 @@ elif selected == "Nueva Unidad":
 elif selected == "Ajustes":
     st.subheader("⚙️ Configuración y Estado del Sistema")
     
-    # --- 1. MONITOR DE ALMACENAMIENTO (NUEVO) ---
-    # Consultamos conteos rápidos de las dos tablas
-    res_h = ejecutar_query("SELECT count(*) FROM historial", fetch=True)
-    res_v = ejecutar_query("SELECT count(*) FROM vehiculos", fetch=True)
-    total_filas = res_h.iloc[0,0] + res_v.iloc[0,0]
+    # --- 1. MONITOR DE ALMACENAMIENTO (CORREGIDO PARA EVITAR TYPEERROR) ---
+    try:
+        # Traemos los datos para contar las filas físicamente
+        df_historial_status = ejecutar_query("SELECT * FROM historial", fetch=True)
+        df_vehiculos_status = ejecutar_query("SELECT * FROM vehiculos", fetch=True)
+        
+        # Obtenemos los números enteros de filas
+        num_h = len(df_historial_status) if df_historial_status is not None else 0
+        num_v = len(df_vehiculos_status) if df_vehiculos_status is not None else 0
+        total_filas = num_h + num_v
+        
+        # Cálculo de capacidad (Límite estimado de 500,000 registros para 500MB)
+        capacidad_max = 500000
+        uso_porcentaje = (total_filas / capacidad_max) * 100
+        
+        # Mostrar métricas
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Registros en Historial", f"{num_h:,}")
+        m2.metric("Unidades en Flota", f"{num_v}")
+        m3.metric("Uso de Almacenamiento", f"{uso_porcentaje:.4f}%")
+        
+        # Barra de progreso visual
+        st.progress(min(uso_porcentaje/10, 1.0)) 
+        st.caption(f"🛡️ Capacidad segura: Tienes espacio para {capacidad_max - total_filas:,} registros adicionales antes de llegar al límite gratuito.")
     
-    # Estimación: 500,000 filas para llegar al límite de la base de datos
-    uso_porcentaje = (total_filas / 500000) * 100
-    
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Registros en Historial", f"{res_h.iloc[0,0]}")
-    m2.metric("Unidades en Flota", f"{res_v.iloc[0,0]}")
-    m3.metric("Uso de Almacenamiento", f"{uso_porcentaje:.4f}%")
-    
-    st.progress(min(uso_porcentaje/10, 1.0)) # Barra visual (se llena si llega al 10% de la capacidad total)
-    st.caption(f"Capacidad segura: Tienes espacio para {500000 - total_filas:,} registros adicionales.")
+    except Exception as e:
+        st.error(f"No se pudo cargar el monitor de capacidad: {e}")
+        num_v = 0 # Fallback para evitar errores en la parte de abajo
+        df_vehiculos_status = pd.DataFrame()
+
     st.markdown("---")
 
-    # --- 2. TUS COLUMNAS ORIGINALES ---
+    # --- 2. COLUMNAS DE ACCIONES ---
     c1, c2 = st.columns(2)
+    
     with c1:
         st.markdown("### Exportar Reporte Ejecutivo")
         if st.button("📊 GENERAR EXCEL CORPORATIVO"):
+            # Usamos una query específica para el reporte
             df_raw = ejecutar_query("SELECT codigo_tcs, placa, marca, km_ultimo_manto, km_actual, frecuencia FROM vehiculos", fetch=True)
+            
             if not df_raw.empty:
-                # Cálculos
+                # Cálculos del reporte
                 df_raw['Prox. Manto'] = df_raw['km_ultimo_manto'] + df_raw['frecuencia']
                 df_raw['KM Faltantes'] = df_raw['Prox. Manto'] - df_raw['km_actual']
                 df_raw['Estado'] = df_raw['KM Faltantes'].apply(lambda x: 'CRÍTICO' if x < 200 else ('ALERTA' if x < 600 else 'OPERATIVO'))
+                
+                # Renombrar para el Excel
                 df_raw.columns = ['CÓDIGO', 'PLACA', 'MARCA', 'U. MANTO (KM)', 'KM ACTUAL', 'FRECUENCIA', 'PRÓX. MANTO', 'FALTAN (KM)', 'ESTADO']
 
                 output = io.BytesIO()
@@ -393,9 +412,9 @@ elif selected == "Ajustes":
                     workbook  = writer.book
                     worksheet = writer.sheets['Reporte']
 
-                    # CONFIGURACIÓN
+                    # CONFIGURACIÓN DE IMPRESIÓN
                     worksheet.set_landscape()
-                    worksheet.set_paper(9)
+                    worksheet.set_paper(9) # A4
                     worksheet.fit_to_pages(1, 1)
                     worksheet.set_margins(0.3, 0.3, 0.3, 0.3)
                     worksheet.hide_gridlines(2)
@@ -409,11 +428,10 @@ elif selected == "Ajustes":
                     cargo_fmt = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 9, 'top': 1})
 
                     # LOGO Y ENCABEZADO
-                    worksheet.merge_range('A1:B4', "", workbook.add_format({'border':0}))
                     if os.path.exists("logo.png"):
                         worksheet.insert_image('A1', 'logo.png', {'x_scale': 0.10, 'y_scale': 0.10, 'x_offset': 35, 'y_offset': 10})
 
-                    # HORA DE PERÚ PARA EL EXCEL
+                    # HORA DE PERÚ PARA EL REPORTE
                     tz_pe = pytz.timezone('America/Lima')
                     fecha_pe = datetime.now(tz_pe).strftime('%d/%m/%Y %H:%M')
 
@@ -421,38 +439,48 @@ elif selected == "Ajustes":
                     worksheet.merge_range('C3:I3', f"Fecha de Emisión: {fecha_pe}", info_fmt)
                     worksheet.merge_range('C4:I4', "MANTENIMIENTO PREVENTIVO UNIDADES - TECSERM S.A.C. 2026", info_fmt)
 
-                    # TABLA
+                    # ESCRIBIR TABLA
                     for col_num, value in enumerate(df_raw.columns.values):
                         worksheet.write(5, col_num, value, header_fmt)
-                        worksheet.set_column(col_num, col_num, 14)
+                        worksheet.set_column(col_num, col_num, 15)
 
                     for row_num, row_data in enumerate(df_raw.values):
                         for col_num, cell_value in enumerate(row_data):
-                            if col_num == 8: # Columna ESTADO
+                            if col_num == 8: # Semáforo de colores para el ESTADO
                                 color = '#3fb950' if cell_value == 'OPERATIVO' else ('#d29922' if cell_value == 'ALERTA' else '#f85149')
                                 est_fmt = workbook.add_format({'bg_color': color, 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
                                 worksheet.write(row_num + 6, col_num, cell_value, est_fmt)
                             else:
                                 worksheet.write(row_num + 6, col_num, cell_value, cell_center)
 
-                    # FIRMAS
+                    # SECCIÓN DE FIRMAS
                     f_idx = len(df_raw) + 9
                     worksheet.merge_range(f_idx, 1, f_idx, 3, "V°B° LOGISTICA", cargo_fmt)
                     worksheet.merge_range(f_idx + 1, 1, f_idx + 1, 3, "JUAN CARLOS ZEGARRA LOPEZ", firma_fmt)
                     worksheet.merge_range(f_idx, 5, f_idx, 7, "V°B° CALIDAD", cargo_fmt)
                     worksheet.merge_range(f_idx + 1, 5, f_idx + 1, 7, "AARON FLORES VILLANUEVA", firma_fmt)
 
-                st.download_button(label="⬇️ Descargar Reporte_Excel", data=output.getvalue(), file_name=f"Reporte_TECSERM_{datetime.now(tz_pe).strftime('%d%m')}.xlsx", mime="application/vnd.ms-excel")
+                st.download_button(
+                    label="⬇️ Descargar Reporte_Excel", 
+                    data=output.getvalue(), 
+                    file_name=f"REPORTE_TECSERM_{datetime.now(tz_pe).strftime('%d%m_%H%M')}.xlsx", 
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
 
     with c2:
         st.markdown("### Gestión de Datos")
-        # Usamos el dataframe que ya consultamos arriba para no repetir query
-        if not res_v.empty:
-            target = st.selectbox("Eliminar Unidad:", df_v_count['codigo_tcs'])
-            # Check de seguridad para no borrar por error
-            confirmar = st.checkbox(f"Confirmar eliminación de {target}")
-            if st.button("❌ ELIMINAR", type="primary", disabled=not confirmar):
+        # Usamos el dataframe que cargamos al inicio de Ajustes
+        if df_vehiculos_status is not None and not df_vehiculos_status.empty:
+            target = st.selectbox("Seleccione Unidad para eliminar:", df_vehiculos_status['codigo_tcs'])
+            
+            # Checkbox de seguridad
+            confirmar = st.checkbox(f"Confirmo que deseo borrar permanentemente la unidad {target}")
+            
+            if st.button("❌ ELIMINAR UNIDAD", type="primary", disabled=not confirmar):
+                # Borramos la unidad (Se recomienda borrar historial asociado también si se desea limpieza total)
                 ejecutar_query("DELETE FROM vehiculos WHERE codigo_tcs = %s", (target,))
-                st.success(f"Unidad {target} eliminada.")
-                time.sleep(1)
+                st.success(f"La unidad {target} ha sido eliminada del sistema.")
+                time.sleep(1.5)
                 st.rerun()
+        else:
+            st.info("No hay unidades registradas para gestionar.")
