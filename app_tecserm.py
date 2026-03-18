@@ -9,7 +9,6 @@ from supabase import create_client, Client
 from login_modulo import check_login
 from io import BytesIO
 import pytz
-import numpy as np
 
 def cerrar_sesion():
     # Limpia el estado
@@ -355,61 +354,12 @@ elif selected == "Nueva Unidad":
                 st.rerun()
 
 elif selected == "Ajustes":
-    st.subheader("⚙️ Configuración y Estado del Sistema")
-    
-    # --- 1. MONITOR DE ALMACENAMIENTO (PROTECCIÓN CONTRA ERRORES DE TEXTO) ---
-    try:
-        # Consultas de conteo
-        res_h_total = ejecutar_query("SELECT COUNT(*) FROM historial", fetch=True)
-        res_v_total = ejecutar_query("SELECT COUNT(*) FROM vehiculos", fetch=True)
-        
-        # Función de validación para evitar el error 'TCS-1' o similares
-        def validar_conteo(df):
-            if df is not None and not df.empty:
-                valor = df.iloc[0, 0]
-                # Si el valor ya es un número (int o float), lo usamos
-                if isinstance(valor, (int, float, np.integer)):
-                    return int(valor)
-                # Si es un texto, intentamos convertirlo, si falla contamos las filas
-                try:
-                    return int(valor)
-                except (ValueError, TypeError):
-                    return len(df)
-            return 0
-
-        num_h = validar_conteo(res_h_total)
-        num_v = validar_conteo(res_v_total)
-        total_filas = num_h + num_v
-        
-        # Capacidad basada en tus 25.11 MB detectados (Plan Free 500MB)
-        capacidad_max = 500000 
-        uso_porcentaje = (total_filas / capacidad_max) * 100
-        
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Registros en Historial", f"{num_h:,}")
-        m2.metric("Unidades en Flota", f"{num_v}")
-        m3.metric("Uso de Almacenamiento", f"{uso_porcentaje:.4f}%")
-        
-        st.progress(min(uso_porcentaje/10, 1.0)) 
-        st.caption(f"📊 Estado de Base de Datos: {total_filas:,} registros totales detectados (Límite 500MB).")
-    
-    except Exception as e:
-        st.warning(f"Sincronizando monitor de capacidad... ({e})")
-        num_h, num_v = 0, 0
-
-    # --- CARGA DE LISTA PARA ELIMINACIÓN (Independiente) ---
-    df_para_eliminar = ejecutar_query("SELECT codigo_tcs FROM vehiculos ORDER BY codigo_tcs", fetch=True)
-
-    st.markdown("---")
-
-    # --- 2. COLUMNAS DE ACCIONES ---
+    st.subheader("⚙️ Configuración")
     c1, c2 = st.columns(2)
-    
     with c1:
         st.markdown("### Exportar Reporte Ejecutivo")
         if st.button("📊 GENERAR EXCEL CORPORATIVO"):
             df_raw = ejecutar_query("SELECT codigo_tcs, placa, marca, km_ultimo_manto, km_actual, frecuencia FROM vehiculos", fetch=True)
-            
             if not df_raw.empty:
                 df_raw['Prox. Manto'] = df_raw['km_ultimo_manto'] + df_raw['frecuencia']
                 df_raw['KM Faltantes'] = df_raw['Prox. Manto'] - df_raw['km_actual']
@@ -421,33 +371,38 @@ elif selected == "Ajustes":
                     df_raw.to_excel(writer, index=False, sheet_name='Reporte', startrow=5)
                     workbook  = writer.book
                     worksheet = writer.sheets['Reporte']
-                    
-                    worksheet.set_landscape()
-                    worksheet.set_paper(9) 
-                    worksheet.fit_to_pages(1, 1)
-                    worksheet.set_margins(0.3, 0.3, 0.3, 0.3)
+
+                    # --- CONFIGURACIÓN PARA IMPRESIÓN EN UNA HOJA HORIZONTAL ---
+
+                    worksheet.set_landscape()      # Orientación Horizontal
+                    worksheet.set_paper(9)         # Tamaño A4
+                    worksheet.fit_to_pages(1, 1)   # Ajustar a 1 página de ancho y 1 de alto
+                    worksheet.set_margins(0.3, 0.3, 0.3, 0.3) # Márgenes estrechos para ganar espacio
                     worksheet.hide_gridlines(2)
 
+                    # FORMATOS
                     header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1f6feb', 'font_color': 'white', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+                    logo_fmt = workbook.add_format({'align': 'center', 'valign': 'vcenter','border': 0})
                     cell_center = workbook.add_format({'align': 'center', 'valign': 'vcenter', 'border': 1})
                     title_fmt = workbook.add_format({'bold': True, 'font_size': 14, 'font_color': '#1f6feb', 'align': 'center', 'valign': 'vcenter'})
                     info_fmt = workbook.add_format({'font_size': 9, 'italic': True, 'align': 'center'})
                     firma_fmt = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 10})
                     cargo_fmt = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 9, 'top': 1})
 
+                    # LOGO Y ENCABEZADO
+
+                    worksheet.merge_range('A1:B4', "", logo_fmt)
                     if os.path.exists("logo.png"):
                         worksheet.insert_image('A1', 'logo.png', {'x_scale': 0.10, 'y_scale': 0.10, 'x_offset': 35, 'y_offset': 10})
 
-                    tz_pe = pytz.timezone('America/Lima')
-                    fecha_pe = datetime.now(tz_pe).strftime('%d/%m/%Y %H:%M')
-
                     worksheet.merge_range('C1:I2', 'SISTEMA DE GESTIÓN DE CALIDAD', title_fmt)
-                    worksheet.merge_range('C3:I3', f"Fecha de Emisión: {fecha_pe}", info_fmt)
+                    worksheet.merge_range('C3:I3', f"Fecha de Emisión: {datetime.now().strftime('%d/%m/%Y %H:%M')}", info_fmt)
                     worksheet.merge_range('C4:I4', "MANTENIMIENTO PREVENTIVO UNIDADES - TECSERM S.A.C. 2026", info_fmt)
 
+                    # TABLA
                     for col_num, value in enumerate(df_raw.columns.values):
                         worksheet.write(5, col_num, value, header_fmt)
-                        worksheet.set_column(col_num, col_num, 15)
+                        worksheet.set_column(col_num, col_num, 14)
 
                     for row_num, row_data in enumerate(df_raw.values):
                         for col_num, cell_value in enumerate(row_data):
@@ -458,29 +413,21 @@ elif selected == "Ajustes":
                             else:
                                 worksheet.write(row_num + 6, col_num, cell_value, cell_center)
 
+                    # FIRMAS
+
                     f_idx = len(df_raw) + 9
                     worksheet.merge_range(f_idx, 1, f_idx, 3, "V°B° LOGISTICA", cargo_fmt)
                     worksheet.merge_range(f_idx + 1, 1, f_idx + 1, 3, "JUAN CARLOS ZEGARRA LOPEZ", firma_fmt)
                     worksheet.merge_range(f_idx, 5, f_idx, 7, "V°B° CALIDAD", cargo_fmt)
                     worksheet.merge_range(f_idx + 1, 5, f_idx + 1, 7, "AARON FLORES VILLANUEVA", firma_fmt)
-
-                st.download_button(
-                    label="⬇️ Descargar Reporte_Excel", 
-                    data=output.getvalue(), 
-                    file_name=f"REPORTE_TECSERM_{datetime.now(tz_pe).strftime('%d%m_%H%M')}.xlsx", 
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+                st.download_button(label="⬇️ Descargar Reporte_Excel", data=output.getvalue(), file_name=f"Reporte_TECSERM_{datetime.now().strftime('%d%m')}.xlsx", mime="application/vnd.ms-excel")
 
     with c2:
         st.markdown("### Gestión de Datos")
-        if df_para_eliminar is not None and not df_para_eliminar.empty:
-            target = st.selectbox("Seleccione Unidad para eliminar:", df_para_eliminar['codigo_tcs'])
-            confirmar = st.checkbox(f"Confirmo que deseo borrar la unidad {target}")
-            
-            if st.button("❌ ELIMINAR UNIDAD", type="primary", disabled=not confirmar):
-                ejecutar_query("DELETE FROM vehiculos WHERE codigo_tcs = %s", (target,))
-                st.success(f"Unidad {target} eliminada.")
-                time.sleep(1.2)
+        df_del = ejecutar_query(fetch=True)
+        if not df_del.empty:
+            target = st.selectbox("Eliminar Unidad:", df_del['codigo_tcs'])
+            if st.button("❌ ELIMINAR", type="primary"):
+                ejecutar_query("DELETE FROM vehiculos", (target,))
+                st.success("Unidad eliminada.")
                 st.rerun()
-        else:
-            st.info("No hay unidades registradas para gestionar.")
