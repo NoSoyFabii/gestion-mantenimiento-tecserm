@@ -355,15 +355,25 @@ elif selected == "Nueva Unidad":
 
 elif selected == "Ajustes":
     st.subheader("⚙️ Configuración")
+    
+    # --- CONFIGURACIÓN DE HORA PERÚ ---
+    peru_tz = pytz.timezone('America/Lima')
+    fecha_peru = datetime.now(peru_tz)
+    
     c1, c2 = st.columns(2)
+    
     with c1:
         st.markdown("### Exportar Reporte Ejecutivo")
         if st.button("📊 GENERAR EXCEL CORPORATIVO"):
             df_raw = ejecutar_query("SELECT codigo_tcs, placa, marca, km_ultimo_manto, km_actual, frecuencia FROM vehiculos", fetch=True)
+            
             if not df_raw.empty:
+                # Cálculos lógicos
                 df_raw['Prox. Manto'] = df_raw['km_ultimo_manto'] + df_raw['frecuencia']
                 df_raw['KM Faltantes'] = df_raw['Prox. Manto'] - df_raw['km_actual']
                 df_raw['Estado'] = df_raw['KM Faltantes'].apply(lambda x: 'CRÍTICO' if x < 200 else ('ALERTA' if x < 600 else 'OPERATIVO'))
+                
+                # Renombrar columnas para el Excel
                 df_raw.columns = ['CÓDIGO', 'PLACA', 'MARCA', 'U. MANTO (KM)', 'KM ACTUAL', 'FRECUENCIA', 'PRÓX. MANTO', 'FALTAN (KM)', 'ESTADO']
 
                 output = io.BytesIO()
@@ -372,12 +382,11 @@ elif selected == "Ajustes":
                     workbook  = writer.book
                     worksheet = writer.sheets['Reporte']
 
-                    # --- CONFIGURACIÓN PARA IMPRESIÓN EN UNA HOJA HORIZONTAL ---
-
-                    worksheet.set_landscape()      # Orientación Horizontal
-                    worksheet.set_paper(9)         # Tamaño A4
-                    worksheet.fit_to_pages(1, 1)   # Ajustar a 1 página de ancho y 1 de alto
-                    worksheet.set_margins(0.3, 0.3, 0.3, 0.3) # Márgenes estrechos para ganar espacio
+                    # --- CONFIGURACIÓN PARA IMPRESIÓN ---
+                    worksheet.set_landscape()
+                    worksheet.set_paper(9) # A4
+                    worksheet.fit_to_pages(1, 1)
+                    worksheet.set_margins(0.3, 0.3, 0.3, 0.3)
                     worksheet.hide_gridlines(2)
 
                     # FORMATOS
@@ -389,24 +398,24 @@ elif selected == "Ajustes":
                     firma_fmt = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 10})
                     cargo_fmt = workbook.add_format({'align': 'center', 'bold': True, 'font_size': 9, 'top': 1})
 
-                    # LOGO Y ENCABEZADO
-
+                    # LOGO Y ENCABEZADO (CON HORA DE PERÚ)
                     worksheet.merge_range('A1:B4', "", logo_fmt)
                     if os.path.exists("logo.png"):
                         worksheet.insert_image('A1', 'logo.png', {'x_scale': 0.10, 'y_scale': 0.10, 'x_offset': 35, 'y_offset': 10})
 
                     worksheet.merge_range('C1:I2', 'SISTEMA DE GESTIÓN DE CALIDAD', title_fmt)
-                    worksheet.merge_range('C3:I3', f"Fecha de Emisión: {datetime.now().strftime('%d/%m/%Y %H:%M')}", info_fmt)
+                    # Aquí se aplica la fecha corregida
+                    worksheet.merge_range('C3:I3', f"Fecha de Emisión: {fecha_peru.strftime('%d/%m/%Y %H:%M')}", info_fmt)
                     worksheet.merge_range('C4:I4', "MANTENIMIENTO PREVENTIVO UNIDADES - TECSERM S.A.C. 2026", info_fmt)
 
-                    # TABLA
+                    # ESCRIBIR TABLA
                     for col_num, value in enumerate(df_raw.columns.values):
                         worksheet.write(5, col_num, value, header_fmt)
                         worksheet.set_column(col_num, col_num, 14)
 
                     for row_num, row_data in enumerate(df_raw.values):
                         for col_num, cell_value in enumerate(row_data):
-                            if col_num == 8:
+                            if col_num == 8: # Columna ESTADO
                                 color = '#3fb950' if cell_value == 'OPERATIVO' else ('#d29922' if cell_value == 'ALERTA' else '#f85149')
                                 est_fmt = workbook.add_format({'bg_color': color, 'font_color': 'white', 'bold': True, 'border': 1, 'align': 'center'})
                                 worksheet.write(row_num + 6, col_num, cell_value, est_fmt)
@@ -414,20 +423,31 @@ elif selected == "Ajustes":
                                 worksheet.write(row_num + 6, col_num, cell_value, cell_center)
 
                     # FIRMAS
-
                     f_idx = len(df_raw) + 9
                     worksheet.merge_range(f_idx, 1, f_idx, 3, "V°B° LOGISTICA", cargo_fmt)
                     worksheet.merge_range(f_idx + 1, 1, f_idx + 1, 3, "JUAN CARLOS ZEGARRA LOPEZ", firma_fmt)
                     worksheet.merge_range(f_idx, 5, f_idx, 7, "V°B° CALIDAD", cargo_fmt)
                     worksheet.merge_range(f_idx + 1, 5, f_idx + 1, 7, "AARON FLORES VILLANUEVA", firma_fmt)
-                st.download_button(label="⬇️ Descargar Reporte_Excel", data=output.getvalue(), file_name=f"Reporte_TECSERM_{datetime.now().strftime('%d%m')}.xlsx", mime="application/vnd.ms-excel")
+                
+                # Botón de descarga con nombre de archivo dinámico (Hora Perú)
+                st.download_button(
+                    label="⬇️ Descargar Reporte_Excel", 
+                    data=output.getvalue(), 
+                    file_name=f"Reporte_TECSERM_{fecha_peru.strftime('%d%m_%H%M')}.xlsx", 
+                    mime="application/vnd.ms-excel"
+                )
 
     with c2:
         st.markdown("### Gestión de Datos")
-        df_del = ejecutar_query(fetch=True)
+        # Obtenemos la lista actualizada para el selector
+        df_del = ejecutar_query("SELECT codigo_tcs FROM vehiculos", fetch=True)
         if not df_del.empty:
-            target = st.selectbox("Eliminar Unidad:", df_del['codigo_tcs'])
-            if st.button("❌ ELIMINAR", type="primary"):
-                ejecutar_query("DELETE FROM vehiculos", (target,))
-                st.success("Unidad eliminada.")
+            target = st.selectbox("Seleccionar Unidad para Eliminar:", df_del['codigo_tcs'])
+            # Botón de eliminar con confirmación visual de Streamlit
+            if st.button("❌ ELIMINAR UNIDAD", type="primary"):
+                # CORRECCIÓN: Se añade WHERE para no borrar toda la tabla
+                ejecutar_query("DELETE FROM vehiculos WHERE codigo_tcs = %s", (target,))
+                st.success(f"Unidad {target} eliminada correctamente.")
                 st.rerun()
+        else:
+            st.info("No hay unidades registradas para eliminar.")
