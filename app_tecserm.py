@@ -356,41 +356,39 @@ elif selected == "Nueva Unidad":
 elif selected == "Ajustes":
     st.subheader("⚙️ Configuración y Estado del Sistema")
     
-    # --- 1. MONITOR DE ALMACENAMIENTO (CORREGIDO PARA CONTEO TOTAL REAL) ---
+    # --- 1. MONITOR DE ALMACENAMIENTO (CORRECCIÓN DEFINITIVA) ---
     try:
-        # Pedimos el conteo exacto directamente a la base de datos para ver el total real
-        res_h_total = ejecutar_query("SELECT COUNT(*) as total FROM historial", fetch=True)
-        res_v_total = ejecutar_query("SELECT COUNT(*) as total FROM vehiculos", fetch=True)
+        # Usamos una forma más directa de obtener el número
+        res_h_total = ejecutar_query("SELECT COUNT(*) FROM historial", fetch=True)
+        res_v_total = ejecutar_query("SELECT COUNT(*) FROM vehiculos", fetch=True)
         
-        # Extraemos el número del resultado de la consulta
-        num_h = int(res_h_total.iloc[0]['total']) if not res_h_total.empty else 0
-        num_v = int(res_v_total.iloc[0]['total']) if not res_v_total.empty else 0
+        # Extraemos el valor de la primera celda sea cual sea el nombre de la columna
+        num_h = int(res_h_total.iloc[0, 0]) if not res_h_total.empty else 0
+        num_v = int(res_v_total.iloc[0, 0]) if not res_v_total.empty else 0
         total_filas = num_h + num_v
         
-        # Para la lista de eliminación, seguimos necesitando los datos de los vehículos
+        # Cargamos los vehículos para la gestión de datos (c2)
         df_vehiculos_status = ejecutar_query("SELECT codigo_tcs FROM vehiculos", fetch=True)
         
-        # Cálculo de capacidad (Límite estimado de 500,000 registros para 500MB)
+        # Capacidad
         capacidad_max = 500000
         uso_porcentaje = (total_filas / capacidad_max) * 100
         
-        # Mostrar métricas
         m1, m2, m3 = st.columns(3)
         m1.metric("Registros en Historial", f"{num_h:,}")
         m2.metric("Unidades en Flota", f"{num_v}")
         m3.metric("Uso de Almacenamiento", f"{uso_porcentaje:.4f}%")
         
-        # Barra de progreso visual
         st.progress(min(uso_porcentaje/10, 1.0)) 
-        st.caption(f"🛡️ Capacidad segura: Tienes espacio para {capacidad_max - total_filas:,} registros adicionales antes de llegar al límite gratuito.")
+        st.caption(f"🛡️ Tienes {num_h} movimientos reales guardados en la nube.")
     
     except Exception as e:
-        st.error(f"No se pudo cargar el monitor de capacidad: {e}")
-        df_vehiculos_status = pd.DataFrame()
+        st.error(f"Error técnico en monitor: {e}")
+        df_vehiculos_status = ejecutar_query("SELECT codigo_tcs FROM vehiculos", fetch=True)
 
     st.markdown("---")
 
-    # --- 2. COLUMNAS DE ACCIONES (SIN MODIFICAR LÓGICA ANTERIOR) ---
+    # --- 2. COLUMNAS DE ACCIONES ---
     c1, c2 = st.columns(2)
     
     with c1:
@@ -410,7 +408,6 @@ elif selected == "Ajustes":
                     df_raw.to_excel(writer, index=False, sheet_name='Reporte', startrow=5)
                     workbook  = writer.book
                     worksheet = writer.sheets['Reporte']
-
                     worksheet.set_landscape()
                     worksheet.set_paper(9) 
                     worksheet.fit_to_pages(1, 1)
@@ -468,8 +465,8 @@ elif selected == "Ajustes":
             
             if st.button("❌ ELIMINAR UNIDAD", type="primary", disabled=not confirmar):
                 ejecutar_query("DELETE FROM vehiculos WHERE codigo_tcs = %s", (target,))
-                st.success(f"La unidad {target} ha sido eliminada del sistema.")
+                st.success(f"La unidad {target} ha sido eliminada.")
                 time.sleep(1.5)
                 st.rerun()
         else:
-            st.info("No hay unidades registradas para gestionar.")
+            st.warning("No se detectan unidades para gestionar. Verifique la conexión.")
