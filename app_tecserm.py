@@ -8,6 +8,7 @@ import io
 from supabase import create_client, Client
 from login_modulo import check_login
 from io import BytesIO
+import pytz
 
 def cerrar_sesion():
     # Limpia el estado
@@ -244,6 +245,10 @@ elif selected == "Mantenimiento":
 
 elif selected == "Historial":
     st.subheader("🕒 Expediente Individual")
+    
+    # 1. Configurar Zona Horaria de Perú para todo el bloque
+    tz_peru = pytz.timezone('America/Lima')
+    
     df_v = ejecutar_query(fetch=True)
     if not df_v.empty:
         u_busq = st.selectbox("🔍 Seleccionar Vehículo:", df_v['codigo_tcs'])
@@ -269,13 +274,12 @@ elif selected == "Historial":
         hist = ejecutar_query(fetch=True, tabla="historial")
         if not hist.empty:
             hist_filtrado = hist[hist['codigo_tcs'] == u_busq].copy()
+            # Ordenar por fecha (el más reciente arriba)
             hist_filtrado = hist_filtrado.sort_index(ascending=False)
 
             # --- GENERACIÓN DE EXCEL CORPORATIVO ---
             output_h = io.BytesIO()
-            # Usamos xlsxwriter para los colores y el logo
             with pd.ExcelWriter(output_h, engine='xlsxwriter') as writer:
-                # Datos a exportar
                 df_export = hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']].copy()
                 df_export.columns = ['FECHA/HORA', 'ACTIVIDAD', 'KILOMETRAJE', 'UBICACIÓN/TALLER']
                 
@@ -284,46 +288,50 @@ elif selected == "Historial":
                 workbook  = writer.book
                 worksheet = writer.sheets['AUDITORIA_TCS']
 
-                # Formatos de Estilo
-                header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1f6feb', 'font_color': 'white', 'border': 1, 'align': 'center'})
-                cell_fmt = workbook.add_format({'border': 1, 'align': 'center'})
+                # Formatos
+                header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1f6feb', 'font_color': 'white', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
+                cell_fmt = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter'})
                 title_fmt = workbook.add_format({'bold': True, 'font_size': 14, 'font_color': '#1f6feb'})
-                info_header_fmt = workbook.add_format({'bold': True, 'bg_color': '#f0f0f0', 'border': 1})
                 firma_fmt = workbook.add_format({'align': 'center', 'bold': True, 'top': 1})
 
-                # 1. Logo y Encabezado
+                # LOGO
                 if os.path.exists("logo.png"):
                     worksheet.insert_image('A1', 'logo.png', {'x_scale': 0.08, 'y_scale': 0.08, 'x_offset': 10, 'y_offset': 5})
                 
-                worksheet.merge_range('C1:D2', 'REPORTE DE AUDITORÍA VEHICULAR', title_fmt)
+                # ENCABEZADOS CON HORA PERÚ
+                fecha_impresion = datetime.now(tz_peru).strftime('%d/%m/%Y %H:%M')
+                worksheet.merge_range('C1:E2', 'REPORTE DE AUDITORÍA VEHICULAR', title_fmt)
                 worksheet.write('C3', f"UNIDAD: {u_busq}", workbook.add_format({'bold': True}))
                 worksheet.write('C4', f"PLACA: {placa_v} | MARCA: {marca_v}")
-                worksheet.write('C5', f"FECHA IMPRESIÓN: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+                worksheet.write('C5', f"FECHA IMPRESIÓN (PERÚ): {fecha_impresion}")
 
-                # 2. Tabla de Datos
+                # TABLA Y ANCHO DE COLUMNAS (Corregido para que entre el texto)
+                worksheet.set_column('A:A', 22) # Fecha
+                worksheet.set_column('B:B', 35) # Actividad (Más ancho para descripciones)
+                worksheet.set_column('C:C', 18) # KM
+                worksheet.set_column('D:D', 35) # Ubicación (Más ancho para nombres de talleres)
+
                 for col_num, value in enumerate(df_export.columns.values):
                     worksheet.write(6, col_num, value, header_fmt)
-                    worksheet.set_column(col_num, col_num, 20)
 
                 for row_num, row_data in enumerate(df_export.values):
                     for col_num, cell_value in enumerate(row_data):
                         worksheet.write(row_num + 7, col_num, cell_value, cell_fmt)
 
-                # 3. Firmas de Homologación (al final de la tabla)
+                # FIRMAS
                 f_row = len(df_export) + 10
                 worksheet.merge_range(f_row, 0, f_row, 1, "V°B° LOGISTICA", firma_fmt)
                 worksheet.merge_range(f_row, 2, f_row, 3, "V°B° CONTROL DE CALIDAD", firma_fmt)
 
-            # Botón de descarga con estilo
+            # Botón de descarga
             st.download_button(
-                label="📥 DESCARGAR HISTORIAL DE VEHÍCULO (EXCEL)",
+                label="📥 DESCARGAR EXPEDIENTE DE AUDITORÍA (EXCEL)",
                 data=output_h.getvalue(),
-                file_name=f"AUDITORIA_{u_busq}_{datetime.now().strftime('%d%m%y')}.xlsx",
+                file_name=f"AUDITORIA_{u_busq}_{datetime.now(tz_peru).strftime('%d%m%y')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
 
-            # Vista previa en la app
             st.dataframe(hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']], use_container_width=True, hide_index=True)
         else:
             st.info("Sin historial para esta unidad.")
