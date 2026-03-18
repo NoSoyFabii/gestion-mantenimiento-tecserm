@@ -246,95 +246,102 @@ elif selected == "Mantenimiento":
 elif selected == "Historial":
     st.subheader("🕒 Expediente Individual")
     
-    # 1. Configurar Zona Horaria de Perú para todo el bloque
+    # 1. Zona Horaria de Perú
     tz_peru = pytz.timezone('America/Lima')
     
     df_v = ejecutar_query(fetch=True)
     if not df_v.empty:
         u_busq = st.selectbox("🔍 Seleccionar Vehículo:", df_v['codigo_tcs'])
         
-        # --- DATOS DE LA UNIDAD SELECCIONADA ---
         unidad_info = df_v[df_v['codigo_tcs'] == u_busq].iloc[0]
-        km_inicio = int(unidad_info['km_ultimo_manto'])
-        km_actual = int(unidad_info['km_actual'])
-        frecuencia = int(unidad_info['frecuencia'])
         placa_v = unidad_info['placa']
         marca_v = unidad_info['marca']
-        
-        # Métricas en pantalla
-        col1, col2, col3 = st.columns(3)
-        col1.metric("KM INICIO", f"{km_inicio:,} KM")
-        col2.metric("KM ACTUAL", f"{km_actual:,} KM")
-        proximo = km_inicio + frecuencia
-        faltante = proximo - km_actual
-        col3.metric("PRÓXIMO MANTO.", f"{proximo:,} KM", f"{faltante:,} KM", delta_color="normal" if faltante >= 0 else "inverse")
         
         st.markdown("---")
 
         hist = ejecutar_query(fetch=True, tabla="historial")
         if not hist.empty:
+            # Filtrar y ordenar cronológicamente para calcular la diferencia de KM
             hist_filtrado = hist[hist['codigo_tcs'] == u_busq].copy()
-            # Ordenar por fecha (el más reciente arriba)
+            hist_filtrado['kilometraje'] = hist_filtrado['kilometraje'].astype(int)
+            
+            # Ordenamos de más antiguo a más nuevo para calcular el "Anterior"
+            hist_filtrado = hist_filtrado.sort_values(by='fecha', ascending=True)
+            
+            # Crear columna de KM Anterior (el valor de la fila previa)
+            hist_filtrado['KM_ANTERIOR'] = hist_filtrado['kilometraje'].shift(1).fillna(0).astype(int)
+            
+            # Reordenar para que el más reciente aparezca primero en el Excel y la App
             hist_filtrado = hist_filtrado.sort_index(ascending=False)
 
             # --- GENERACIÓN DE EXCEL CORPORATIVO ---
             output_h = io.BytesIO()
             with pd.ExcelWriter(output_h, engine='xlsxwriter') as writer:
-                df_export = hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']].copy()
-                df_export.columns = ['FECHA/HORA', 'ACTIVIDAD', 'KILOMETRAJE', 'UBICACIÓN/TALLER']
+                # Seleccionar y renombrar columnas
+                df_export = hist_filtrado[['fecha', 'accion', 'KM_ANTERIOR', 'kilometraje', 'lugar']].copy()
+                df_export.columns = ['FECHA/HORA', 'ACTIVIDAD', 'KM ANTERIOR', 'KM ACTUAL', 'UBICACIÓN/TALLER']
                 
                 df_export.to_excel(writer, index=False, sheet_name='AUDITORIA_TCS', startrow=6)
                 
                 workbook  = writer.book
                 worksheet = writer.sheets['AUDITORIA_TCS']
 
-                # Formatos
+                # --- CONFIGURACIÓN DE PÁGINA HORIZONTAL ---
+                worksheet.set_landscape()
+                worksheet.set_paper(9)  # A4
+                worksheet.set_margins(0.3, 0.3, 0.3, 0.3)
+                worksheet.fit_to_pages(1, 0) # Ajustar a 1 página de ancho
+
+                # Formatos de Estilo
                 header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1f6feb', 'font_color': 'white', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-                cell_fmt = workbook.add_format({'border': 1, 'align': 'left', 'valign': 'vcenter'})
-                title_fmt = workbook.add_format({'bold': True, 'font_size': 14, 'font_color': '#1f6feb'})
+                cell_center_fmt = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
+                title_fmt = workbook.add_format({'bold': True, 'font_size': 14, 'font_color': '#1f6feb', 'align': 'center'})
                 firma_fmt = workbook.add_format({'align': 'center', 'bold': True, 'top': 1})
 
-                # LOGO
+                # Logo
                 if os.path.exists("logo.png"):
                     worksheet.insert_image('A1', 'logo.png', {'x_scale': 0.08, 'y_scale': 0.08, 'x_offset': 10, 'y_offset': 5})
                 
-                # ENCABEZADOS CON HORA PERÚ
+                # Encabezados
                 fecha_impresion = datetime.now(tz_peru).strftime('%d/%m/%Y %H:%M')
-                worksheet.merge_range('C1:E2', 'REPORTE DE AUDITORÍA VEHICULAR', title_fmt)
-                worksheet.write('C3', f"UNIDAD: {u_busq}", workbook.add_format({'bold': True}))
-                worksheet.write('C4', f"PLACA: {placa_v} | MARCA: {marca_v}")
-                worksheet.write('C5', f"FECHA IMPRESIÓN (PERÚ): {fecha_impresion}")
+                worksheet.merge_range('C1:E2', 'REPORTE DE CONTROL VEHICULAR', title_fmt)
+                worksheet.write('C3', f"UNIDAD: {u_busq}  |  PLACA: {placa_v}", workbook.add_format({'bold': True, 'align': 'center'}))
+                worksheet.write('C4', f"MARCA: {marca_v}", workbook.add_format({'align': 'center'}))
+                worksheet.write('C5', f"FECHA IMPRESIÓN: {fecha_impresion}", workbook.add_format({'align': 'center', 'italic': True}))
 
-                # TABLA Y ANCHO DE COLUMNAS (Corregido para que entre el texto)
-                worksheet.set_column('A:A', 22) # Fecha
-                worksheet.set_column('B:B', 35) # Actividad (Más ancho para descripciones)
-                worksheet.set_column('C:C', 18) # KM
-                worksheet.set_column('D:D', 35) # Ubicación (Más ancho para nombres de talleres)
+                # Ancho de columnas y centrado
+                worksheet.set_column('A:A', 20, cell_center_fmt) # Fecha
+                worksheet.set_column('B:B', 30, cell_center_fmt) # Actividad
+                worksheet.set_column('C:D', 18, cell_center_fmt) # KM Anterior y Actual
+                worksheet.set_column('E:E', 30, cell_center_fmt) # Ubicación
 
+                # Escribir cabeceras con formato azul
                 for col_num, value in enumerate(df_export.columns.values):
                     worksheet.write(6, col_num, value, header_fmt)
 
+                # Escribir datos (xlsxwriter aplicará el centrado de set_column)
                 for row_num, row_data in enumerate(df_export.values):
                     for col_num, cell_value in enumerate(row_data):
-                        worksheet.write(row_num + 7, col_num, cell_value, cell_fmt)
+                        worksheet.write(row_num + 7, col_num, cell_value, cell_center_fmt)
 
-                # FIRMAS
+                # Firmas al final
                 f_row = len(df_export) + 10
                 worksheet.merge_range(f_row, 0, f_row, 1, "V°B° LOGISTICA", firma_fmt)
-                worksheet.merge_range(f_row, 2, f_row, 3, "V°B° CONTROL DE CALIDAD", firma_fmt)
+                worksheet.merge_range(f_row, 3, f_row, 4, "V°B° CONTROL DE CALIDAD", firma_fmt)
 
             # Botón de descarga
             st.download_button(
-                label="📥 DESCARGAR EXPEDIENTE DE AUDITORÍA (EXCEL)",
+                label="📥 DESCARGAR HISTORIAL DE CONTROL VEHICULAR",
                 data=output_h.getvalue(),
-                file_name=f"AUDITORIA_{u_busq}_{datetime.now(tz_peru).strftime('%d%m%y')}.xlsx",
+                file_name=f"AUDITORIA_TCS_{u_busq}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
 
-            st.dataframe(hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']], use_container_width=True, hide_index=True)
+            # Vista previa
+            st.dataframe(hist_filtrado[['fecha', 'accion', 'KM_ANTERIOR', 'kilometraje', 'lugar']], use_container_width=True, hide_index=True)
         else:
-            st.info("Sin historial para esta unidad.")
+            st.info("Sin registros.")
 elif selected == "Nueva Unidad":
     st.subheader("🚚 Alta de Vehículo")
     with st.form("new_unit_form"):
