@@ -9,6 +9,7 @@ from supabase import create_client, Client
 from login_modulo import check_login
 from io import BytesIO
 import pytz
+import numpy as np
 
 def cerrar_sesion():
     # Limpia el estado
