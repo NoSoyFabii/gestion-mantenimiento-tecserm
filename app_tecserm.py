@@ -248,66 +248,85 @@ elif selected == "Historial":
     if not df_v.empty:
         u_busq = st.selectbox("🔍 Seleccionar Vehículo:", df_v['codigo_tcs'])
         
-        # --- DATOS DE LA UNIDAD ---
+        # --- DATOS DE LA UNIDAD SELECCIONADA ---
         unidad_info = df_v[df_v['codigo_tcs'] == u_busq].iloc[0]
-        
         km_inicio = int(unidad_info['km_ultimo_manto'])
         km_actual = int(unidad_info['km_actual'])
         frecuencia = int(unidad_info['frecuencia'])
+        placa_v = unidad_info['placa']
+        marca_v = unidad_info['marca']
         
-        # --- CÁLCULOS PRECISOS ---
-        proximo_manto = km_inicio + frecuencia
-        faltante = proximo_manto - km_actual
-        
-        # --- DISEÑO DE MÉTRICAS ---
+        # Métricas en pantalla
         col1, col2, col3 = st.columns(3)
         col1.metric("KM INICIO", f"{km_inicio:,} KM")
         col2.metric("KM ACTUAL", f"{km_actual:,} KM")
-        
-        label_delta = "restantes" if faltante >= 0 else "excedidos"
-        col3.metric(
-            "PRÓXIMO MANTO.", 
-             f"{proximo_manto:,} KM", 
-             f"{faltante:,} KM {label_delta}", 
-             delta_color="normal" if faltante >= 0 else "inverse"
-        )
+        proximo = km_inicio + frecuencia
+        faltante = proximo - km_actual
+        col3.metric("PRÓXIMO MANTO.", f"{proximo:,} KM", f"{faltante:,} KM", delta_color="normal" if faltante >= 0 else "inverse")
         
         st.markdown("---")
 
-        # --- TABLA DE HISTORIAL Y BOTÓN DE EXCEL ---
         hist = ejecutar_query(fetch=True, tabla="historial")
         if not hist.empty:
             hist_filtrado = hist[hist['codigo_tcs'] == u_busq].copy()
             hist_filtrado = hist_filtrado.sort_index(ascending=False)
 
-            # --- NUEVA FUNCIÓN DE EXPORTACIÓN ---
-            # Preparamos el Excel para Homologación
-            output_h = BytesIO()
-            with pd.ExcelWriter(output_h, engine='openpyxl') as writer:
-                # Limpiamos las columnas para el reporte oficial
-                reporte_auditoria = hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']].copy()
-                reporte_auditoria.columns = ['FECHA', 'ACTIVIDAD', 'KILOMETRAJE', 'UBICACIÓN/TALLER']
-                reporte_auditoria.to_excel(writer, index=False, sheet_name='AUDITORIA_TCS')
+            # --- GENERACIÓN DE EXCEL CORPORATIVO ---
+            output_h = io.BytesIO()
+            # Usamos xlsxwriter para los colores y el logo
+            with pd.ExcelWriter(output_h, engine='xlsxwriter') as writer:
+                # Datos a exportar
+                df_export = hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']].copy()
+                df_export.columns = ['FECHA/HORA', 'ACTIVIDAD', 'KILOMETRAJE', 'UBICACIÓN/TALLER']
+                
+                df_export.to_excel(writer, index=False, sheet_name='AUDITORIA_TCS', startrow=6)
+                
+                workbook  = writer.book
+                worksheet = writer.sheets['AUDITORIA_TCS']
 
-            # Colocamos el botón de descarga
+                # Formatos de Estilo
+                header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1f6feb', 'font_color': 'white', 'border': 1, 'align': 'center'})
+                cell_fmt = workbook.add_format({'border': 1, 'align': 'center'})
+                title_fmt = workbook.add_format({'bold': True, 'font_size': 14, 'font_color': '#1f6feb'})
+                info_header_fmt = workbook.add_format({'bold': True, 'bg_color': '#f0f0f0', 'border': 1})
+                firma_fmt = workbook.add_format({'align': 'center', 'bold': True, 'top': 1})
+
+                # 1. Logo y Encabezado
+                if os.path.exists("logo.png"):
+                    worksheet.insert_image('A1', 'logo.png', {'x_scale': 0.08, 'y_scale': 0.08, 'x_offset': 10, 'y_offset': 5})
+                
+                worksheet.merge_range('C1:D2', 'REPORTE DE AUDITORÍA VEHICULAR', title_fmt)
+                worksheet.write('C3', f"UNIDAD: {u_busq}", workbook.add_format({'bold': True}))
+                worksheet.write('C4', f"PLACA: {placa_v} | MARCA: {marca_v}")
+                worksheet.write('C5', f"FECHA IMPRESIÓN: {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+
+                # 2. Tabla de Datos
+                for col_num, value in enumerate(df_export.columns.values):
+                    worksheet.write(6, col_num, value, header_fmt)
+                    worksheet.set_column(col_num, col_num, 20)
+
+                for row_num, row_data in enumerate(df_export.values):
+                    for col_num, cell_value in enumerate(row_data):
+                        worksheet.write(row_num + 7, col_num, cell_value, cell_fmt)
+
+                # 3. Firmas de Homologación (al final de la tabla)
+                f_row = len(df_export) + 10
+                worksheet.merge_range(f_row, 0, f_row, 1, "V°B° LOGISTICA", firma_fmt)
+                worksheet.merge_range(f_row, 2, f_row, 3, "V°B° CONTROL DE CALIDAD", firma_fmt)
+
+            # Botón de descarga con estilo
             st.download_button(
-                label="📥 EXPORTAR HISTORIAL PARA HOMOLOGACIÓN (EXCEL)",
+                label="📥 DESCARGAR HISTORIAL DE VEHÍCULO (EXCEL)",
                 data=output_h.getvalue(),
-                file_name=f"HISTORIAL_HOMOLOGACION_{u_busq}_{datetime.now().strftime('%d_%m')}.xlsx",
+                file_name=f"AUDITORIA_{u_busq}_{datetime.now().strftime('%d%m%y')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
 
-            st.markdown("<br>", unsafe_allow_html=True)
-            
-            # Mostramos la tabla en pantalla
-            st.dataframe(
-                hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']], 
-                use_container_width=True, 
-                hide_index=True
-            )
+            # Vista previa en la app
+            st.dataframe(hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']], use_container_width=True, hide_index=True)
         else:
-            st.info("No hay registros de movimientos para esta unidad.")
+            st.info("Sin historial para esta unidad.")
 elif selected == "Nueva Unidad":
     st.subheader("🚚 Alta de Vehículo")
     with st.form("new_unit_form"):
