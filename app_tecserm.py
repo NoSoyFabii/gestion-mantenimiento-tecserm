@@ -7,6 +7,7 @@ from streamlit_option_menu import option_menu
 import io
 from supabase import create_client, Client
 from login_modulo import check_login
+from io import BytesIO
 
 def cerrar_sesion():
     # Limpia el estado
@@ -258,35 +259,48 @@ elif selected == "Historial":
         proximo_manto = km_inicio + frecuencia
         faltante = proximo_manto - km_actual
         
-        # --- DISEÑO DE MÉTRICAS 
+        # --- DISEÑO DE MÉTRICAS ---
         col1, col2, col3 = st.columns(3)
-        
-        # 1. INICIO
         col1.metric("KM INICIO", f"{km_inicio:,} KM")
-        
-        # 2. ACTUAL
         col2.metric("KM ACTUAL", f"{km_actual:,} KM")
         
-        # 3. PRÓXIMO MANTENIMIENTO
-        # Usamos delta para mostrar cuánto falta o cuánto se pasó
         label_delta = "restantes" if faltante >= 0 else "excedidos"
         col3.metric(
             "PRÓXIMO MANTO.", 
-            f"{proximo_manto:,} KM", 
-            f"{faltante:,} KM {label_delta}", 
-            delta_color="normal" if faltante >= 0 else "inverse"
+             f"{proximo_manto:,} KM", 
+             f"{faltante:,} KM {label_delta}", 
+             delta_color="normal" if faltante >= 0 else "inverse"
         )
         
         st.markdown("---")
 
-        # --- TABLA DE HISTORIAL ---
+        # --- TABLA DE HISTORIAL Y BOTÓN DE EXCEL ---
         hist = ejecutar_query(fetch=True, tabla="historial")
         if not hist.empty:
             hist_filtrado = hist[hist['codigo_tcs'] == u_busq].copy()
-            
-            
             hist_filtrado = hist_filtrado.sort_index(ascending=False)
+
+            # --- NUEVA FUNCIÓN DE EXPORTACIÓN ---
+            # Preparamos el Excel para Homologación
+            output_h = BytesIO()
+            with pd.ExcelWriter(output_h, engine='openpyxl') as writer:
+                # Limpiamos las columnas para el reporte oficial
+                reporte_auditoria = hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']].copy()
+                reporte_auditoria.columns = ['FECHA', 'ACTIVIDAD', 'KILOMETRAJE', 'UBICACIÓN/TALLER']
+                reporte_auditoria.to_excel(writer, index=False, sheet_name='AUDITORIA_TCS')
+
+            # Colocamos el botón de descarga
+            st.download_button(
+                label="📥 EXPORTAR HISTORIAL PARA HOMOLOGACIÓN (EXCEL)",
+                data=output_h.getvalue(),
+                file_name=f"HISTORIAL_HOMOLOGACION_{u_busq}_{datetime.now().strftime('%d_%m')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+
+            st.markdown("<br>", unsafe_allow_html=True)
             
+            # Mostramos la tabla en pantalla
             st.dataframe(
                 hist_filtrado[['fecha', 'accion', 'kilometraje', 'lugar']], 
                 use_container_width=True, 
