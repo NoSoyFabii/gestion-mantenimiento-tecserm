@@ -33,6 +33,18 @@ except Exception as e:
     st.error(f"Error crítico de conexión: {e}")
     supabase = None
 
+# --- NUEVO: FUNCIÓN PARA MANTENER VIVO SUPABASE ---
+def despertar_supabase():
+    if supabase:
+        try:
+            # Una micro-consulta para que Supabase no se pause por inactividad
+            supabase.table("vehiculos").select("count", count="exact").limit(1).execute()
+        except Exception:
+            pass
+
+# --- NUEVO: ACTIVACIÓN INMEDIATA ---
+despertar_supabase()
+
 check_login()
 
 def ejecutar_query(query_str=None, params=(), fetch=False, tabla="vehiculos"):
