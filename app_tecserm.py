@@ -11,12 +11,9 @@ from io import BytesIO
 import pytz
 
 def cerrar_sesion():
-    # Limpia el estado
     for key in list(st.session_state.keys()):
         del st.session_state[key]
-    # Seteamos explícitamente el estado a False por si el loop del login lo requiere
     st.session_state["autenticado"] = False
-    
 
 # --- 1. CONFIGURACIÓN DE PÁGINA ---
 if os.path.exists("logo.png"):
@@ -33,18 +30,19 @@ except Exception as e:
     st.error(f"Error crítico de conexión: {e}")
     supabase = None
 
-# --- NUEVO: FUNCIÓN PARA MANTENER VIVO SUPABASE ---
+# --- NUEVO: FUNCIÓN PARA MANTENER VIVO SUPABASE (Despertador) ---
 def despertar_supabase():
     if supabase:
         try:
-            # Una micro-consulta para que Supabase no se pause por inactividad
+            # Micro-consulta para evitar la pausa por inactividad
             supabase.table("vehiculos").select("count", count="exact").limit(1).execute()
         except Exception:
             pass
 
-# --- NUEVO: ACTIVACIÓN INMEDIATA ---
+# --- ACTIVACIÓN DEL DESPERTADOR (Antes del login) ---
 despertar_supabase()
 
+# --- LOGIN ---
 check_login()
 
 def ejecutar_query(query_str=None, params=(), fetch=False, tabla="vehiculos"):
@@ -52,12 +50,22 @@ def ejecutar_query(query_str=None, params=(), fetch=False, tabla="vehiculos"):
         if fetch:
             res = supabase.table(tabla).select("*").execute()
             df_res = pd.DataFrame(res.data)
-            # --- AJUSTE DE ORDENAMIENTO ---
-            if not df_res.empty and 'codigo_tcs' in df_res.columns:
-               
-                df_res = df_res.sort_values(by='codigo_tcs', key=lambda col: col.str.extract('(\d+)')[0].astype(int))
+            
+            # --- LIMPIEZA ANTIFALLO (Soluciona el error NaN to Integer) ---
+            if not df_res.empty:
+                if tabla == "vehiculos":
+                    # Forzamos que estas columnas sean números y rellenamos vacíos con 0
+                    for col in ['km_actual', 'km_ultimo_manto', 'frecuencia']:
+                        if col in df_res.columns:
+                            df_res[col] = pd.to_numeric(df_res[col], errors='coerce').fillna(0).astype(int)
+                
+                # Ordenamiento seguro
+                if 'codigo_tcs' in df_res.columns:
+                    df_res['codigo_tcs'] = df_res['codigo_tcs'].astype(str)
+                    df_res = df_res.sort_values(by='codigo_tcs', key=lambda col: col.str.extract('(\d+)')[0].fillna(0).astype(int))
             return df_res
         
+        # --- LÓGICA DE ESCRITURA ---
         if "INSERT INTO vehiculos" in query_str:
             data = {
                 "codigo_tcs": params[0], "placa": params[1], "marca": params[2],
@@ -71,13 +79,14 @@ def ejecutar_query(query_str=None, params=(), fetch=False, tabla="vehiculos"):
                 "km_ultimo_manto": int(params[0]), "km_actual": int(params[1])
             }).eq("codigo_tcs", params[2]).execute()
         elif "DELETE FROM vehiculos" in query_str:
+            # CORRECCIÓN: WHERE para eliminar unidad específica
             supabase.table("vehiculos").delete().eq("codigo_tcs", params[0]).execute()
         
         st.cache_data.clear()
         return True
     except Exception as e:
         st.error(f"Error en base de datos: {e}")
-        return False
+        return pd.DataFrame() if fetch else False
 
 def registrar_historial(codigo, accion, km, lugar="N/A"):
     try:
