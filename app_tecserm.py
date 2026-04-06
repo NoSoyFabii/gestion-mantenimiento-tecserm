@@ -300,21 +300,22 @@ elif selected == "Historial":
 
         hist = ejecutar_query(fetch=True, tabla="historial")
         if not hist.empty:
-            # 1. Procesar datos: Filtrar y calcular KM Anterior
+            # FILTRADO: Buscamos los del vehículo seleccionado
             hist_filtrado = hist[hist['codigo_tcs'] == u_busq].copy()
-            hist_filtrado['kilometraje'] = pd.to_numeric(hist_filtrado['kilometraje'], errors='coerce').fillna(0).astype(int)
             
-            # Aseguramos que la columna observaciones exista en el dataframe
+            # LIMPIEZA: Aseguramos que existan las columnas necesarias
+            for col in ['kilometraje', 'id']:
+                if col in hist_filtrado.columns:
+                    hist_filtrado[col] = pd.to_numeric(hist_filtrado[col], errors='coerce').fillna(0).astype(int)
+            
             if 'observaciones' not in hist_filtrado.columns:
                 hist_filtrado['observaciones'] = ""
-            else:
-                hist_filtrado['observaciones'] = hist_filtrado['observaciones'].fillna("")
 
-            # Ordenamos por fecha para que el cálculo del anterior sea real
+            # ORDENAMIENTO Y CÁLCULO
             hist_filtrado = hist_filtrado.sort_values(by='fecha', ascending=True)
             hist_filtrado['KM_ANTERIOR'] = hist_filtrado['kilometraje'].shift(1).fillna(0).astype(int)
             
-            # Reordenar para mostrar lo más reciente arriba
+            # Este es nuestro DataFrame maestro (CONTIENE EL ID)
             df_final = hist_filtrado.sort_index(ascending=False)
 
             # --- GENERACIÓN DE EXCEL ---
@@ -386,8 +387,34 @@ elif selected == "Historial":
                 use_container_width=True
             )
 
-            # Vista en tabla (Añadida la columna observaciones también aquí)
-            st.dataframe(df_final[['fecha', 'accion', 'KM_ANTERIOR', 'kilometraje', 'lugar', 'observaciones']], use_container_width=True, hide_index=True)
+            # --- VISTA EN TABLA (Solo columnas bonitas) ---
+            columnas_visibles = ['fecha', 'accion', 'KM_ANTERIOR', 'kilometraje', 'lugar', 'observaciones']
+            st.dataframe(df_final[columnas_visibles], use_container_width=True, hide_index=True)
+
+            # --- ZONA DE LIMPIEZA (EL BORRADOR) ---
+            st.markdown("---")
+            with st.expander("🗑️ Corregir Historial (Eliminar duplicados)"):
+                st.warning("⚠️ Selecciona el registro exacto que deseas eliminar.")
+                
+                # Creamos las opciones combinando fecha y acción para que el usuario se ubique
+                # Pero guardamos el ID "por debajo"
+                dict_borrar = {
+                    f"{row['fecha']} - {row['accion']} ({row['kilometraje']} KM)": row['id']
+                    for _, row in df_final.iterrows()
+                }
+                
+                seleccion = st.selectbox("Registro a eliminar:", options=list(dict_borrar.keys()))
+                
+                if st.button("❌ CONFIRMAR ELIMINACIÓN", type="primary", use_container_width=True):
+                    id_a_eliminar = dict_borrar[seleccion]
+                    try:
+                        # Borramos directo en Supabase usando el ID
+                        supabase.table("historial").delete().eq("id", id_a_eliminar).execute()
+                        st.success("✅ Registro eliminado. Recargando historial...")
+                        time.sleep(1.5)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al eliminar: {e}")
 elif selected == "Nueva Unidad":
     st.subheader("🚚 Alta de Vehículo")
     with st.form("new_unit_form"):
