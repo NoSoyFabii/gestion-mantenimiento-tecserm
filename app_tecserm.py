@@ -169,8 +169,8 @@ with st.sidebar:
     
     selected = option_menu(
         menu_title=None,
-        options=["Panel Control", "Registrar KM", "Nueva Unidad", "Mantenimiento", "Historial", "Ajustes"],
-        icons=["grid-fill", "speedometer", "plus-circle", "tools", "clock-history", "gear"],
+        options=["Panel Control", "Registrar KM", "Nueva Unidad", "Mantenimiento Preventivo", "Mantenimiento Correctivo", "Historial", "Ajustes"],
+        icons=["grid-fill", "speedometer", "plus-circle", "tools", "wrench", "clock-history", "gear"],
         default_index=0,
         styles={
             "nav-link": {"font-family": "Rajdhani", "font-size": "18px", "text-align": "left"},
@@ -247,7 +247,7 @@ elif selected == "Registrar KM":
                 time.sleep(1.5)
                 st.rerun()
 
-elif selected == "Mantenimiento":
+elif selected == "Mantenimiento Preventivo":
     st.subheader("🔧 Reiniciar Ciclo")
     df_v = ejecutar_query(fetch=True)
     if not df_v.empty:
@@ -373,6 +373,70 @@ elif selected == "Nueva Unidad":
                 registrar_historial(cod, "ALTA", ini, "Base Central")
                 st.success("✅ Unidad agregada.")
                 st.rerun()
+
+elif selected == "Mantenimiento Correctivo":
+    st.subheader("🛠️ Registro de Mantenimiento Correctivo (Eventual)")
+    st.info("Registre aquí reparaciones, cambios de llantas o cualquier actividad fuera del mantenimiento preventivo.")
+    
+    df_v = ejecutar_query(fetch=True)
+    if not df_v.empty:
+        u_sel = st.selectbox("Seleccione la Unidad afectada:", df_v['codigo_tcs'])
+        
+        # --- FORMULARIO DE REGISTRO ---
+        with st.form("form_manto_correctivo"):
+            col1, col2 = st.columns(2)
+            f_inicio = col1.date_input("Fecha de Ingreso", value=datetime.now())
+            f_fin = col2.date_input("Fecha de Salida", value=datetime.now())
+            
+            actividad = st.text_input("Actividad realizada", placeholder="Ej: Cambio de neumáticos delanteros")
+            costo_mant = st.number_input("Costo del servicio (S/.)", min_value=0.0, step=0.50)
+            observaciones = st.text_area("Observaciones / Detalles técnicos")
+            
+            if st.form_submit_button("💾 REGISTRAR EN BITÁCORA"):
+                if actividad:
+                    data_corr = {
+                        "fecha_inicio": str(f_inicio),
+                        "fecha_fin": str(f_fin),
+                        "codigo_tcs": u_sel,
+                        "descripcion": actividad,
+                        "observaciones": observaciones,
+                        "costo": float(costo_mant)
+                    }
+                    
+                    try:
+                        # 1. Guardar en tabla específica de correctivos
+                        supabase.table("mantenimiento_correctivo").insert(data_corr).execute()
+                        
+                        # 2. Guardar en Historial General para el reporte de auditoría
+                        registrar_historial(u_sel, f"CORRECTIVO: {actividad}", 0, "Taller Externo")
+                        
+                        st.success(f"✅ Registro guardado con éxito para la unidad {u_sel}")
+                        st.balloons()
+                        time.sleep(1.5)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al guardar: {e}")
+                else:
+                    st.warning("⚠️ La descripción de la actividad es obligatoria.")
+
+        # --- TABLA DE VISUALIZACIÓN RÁPIDA (Últimos 5 registros) ---
+        st.markdown("---")
+        st.subheader(f"📋 Últimos correctivos de la unidad {u_sel}")
+        
+        try:
+            # Consultamos la nueva tabla filtrando por la unidad seleccionada
+            res_c = supabase.table("mantenimiento_correctivo").select("*").eq("codigo_tcs", u_sel).order("fecha_inicio", desc=True).limit(5).execute()
+            df_corr = pd.DataFrame(res_c.data)
+            
+            if not df_corr.empty:
+                # Renombrar columnas para que se vean bien en la interfaz
+                df_view = df_corr[['fecha_inicio', 'fecha_fin', 'descripcion', 'costo', 'observaciones']].copy()
+                df_view.columns = ['F. INICIO', 'F. FIN', 'ACTIVIDAD', 'COSTO (S/.)', 'OBSERVACIONES']
+                st.dataframe(df_view, use_container_width=True, hide_index=True)
+            else:
+                st.write("No hay mantenimientos correctivos registrados para esta unidad.")
+        except Exception as e:
+            st.error(f"No se pudo cargar la tabla de visualización: {e}")
 
 elif selected == "Ajustes":
     st.subheader("⚙️ Configuración")
