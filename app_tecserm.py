@@ -371,29 +371,34 @@ elif selected == "Historial":
             # Vista en tabla
             st.dataframe(df_final[['fecha', 'accion', 'KM_ANTERIOR', 'kilometraje', 'lugar', 'observaciones']], use_container_width=True, hide_index=True)
 
-            # --- NUEVA ZONA DE LIMPIEZA (AQUÍ DEBES PEGARLO) ---
+            # --- NUEVA ZONA DE LIMPIEZA CORREGIDA ---
             st.markdown("---")
             with st.expander("🗑️ Corregir Historial (Eliminar registros duplicados o erróneos)"):
-                st.warning("⚠️ Esta acción eliminará el registro seleccionado del reporte de auditoría permanentemente.")
+                st.warning("⚠️ Esta acción eliminará el registro seleccionado permanentemente.")
                 
-                # Creamos el diccionario de opciones usando el ID real de la base de datos
-                opciones_hist = {
-                    f"{r['fecha']} | {r['accion']} | {r['kilometraje']} KM": r['id'] 
-                    for _, r in df_final.iterrows()
-                }
-                
-                registro_a_borrar = st.selectbox("Seleccione el registro exacto a eliminar:", 
-                                                 options=list(opciones_hist.keys()))
-                
-                if st.button("❌ ELIMINAR REGISTRO SELECCIONADO", type="primary", use_container_width=True):
-                    id_db = opciones_hist[registro_a_borrar]
-                    try:
-                        supabase.table("historial").delete().eq("id", id_db).execute()
-                        st.error(f"✅ Registro eliminado con éxito.")
-                        time.sleep(1.5)
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"No se pudo eliminar: {e}")
+                # Verificamos si la columna 'id' existe en el DataFrame
+                if 'id' in df_final.columns:
+                    # Creamos el diccionario de opciones de forma segura
+                    opciones_hist = {
+                        f"{r['fecha']} | {r['accion']} | {r['kilometraje']} KM": r['id'] 
+                        for _, r in df_final.iterrows()
+                    }
+                    
+                    registro_a_borrar = st.selectbox("Seleccione el registro exacto a eliminar:", 
+                                                     options=list(opciones_hist.keys()))
+                    
+                    if st.button("❌ ELIMINAR REGISTRO SELECCIONADO", type="primary", use_container_width=True):
+                        id_db = opciones_hist[registro_a_borrar]
+                        try:
+                            # Borramos usando el ID único
+                            supabase.table("historial").delete().eq("id", id_db).execute()
+                            st.error(f"✅ Registro eliminado. Limpiando historial...")
+                            time.sleep(1.5)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"No se pudo eliminar: {e}")
+                else:
+                    st.error("❌ Error técnico: No se encontró la columna ID en el historial. Contacte a soporte.")
 elif selected == "Nueva Unidad":
     st.subheader("🚚 Alta de Vehículo")
     with st.form("new_unit_form"):
