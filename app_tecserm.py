@@ -388,13 +388,22 @@ elif selected == "Nueva Unidad":
         mar = c2.text_input("Marca / Modelo")
         fre = c2.selectbox("Frecuencia (KM)", [5000, 7500, 10000, 15000])
         ini = c1.number_input("Kilometraje Inicial", min_value=0, step=1)
+        
         if st.form_submit_button("REGISTRAR UNIDAD"):
             if cod and pla:
+                # 1. Guardamos los datos
                 ejecutar_query("INSERT INTO vehiculos", (cod, pla, mar, fre, ini, ini))
                 registrar_historial(cod, "ALTA", ini, "Base Central")
-                st.success("✅ Unidad agregada.")
+                
+                # 2. MOSTRAR CONFIRMACIÓN (Esto es lo que faltaba)
+                st.balloons() # Efecto visual de éxito
+                st.success(f"✅ Unidad {cod} registrada correctamente en el sistema.")
+                
+                # 3. ESPERAR Y REINICIAR
+                time.sleep(2) # Pausa de 2 segundos para que el usuario vea el mensaje
                 st.rerun()
-
+            else:
+                st.warning("⚠️ Por favor, complete al menos el Código y la Placa.")
 elif selected == "Mantenimiento Correctivo":
     st.subheader("🛠️ Registro de Mantenimiento Correctivo (Eventual)")
     st.info("Registre aquí reparaciones, cambios de llantas o cualquier actividad fuera del mantenimiento preventivo.")
@@ -548,13 +557,28 @@ elif selected == "Ajustes":
         st.markdown("### Gestión de Datos")
         # Obtenemos la lista actualizada para el selector
         df_del = ejecutar_query("SELECT codigo_tcs FROM vehiculos", fetch=True)
+        
         if not df_del.empty:
             target = st.selectbox("Seleccionar Unidad para Eliminar:", df_del['codigo_tcs'])
+            
             # Botón de eliminar con confirmación visual de Streamlit
-            if st.button("❌ ELIMINAR UNIDAD", type="primary"):
-                # CORRECCIÓN: Se añade WHERE para no borrar toda la tabla
-                ejecutar_query("DELETE FROM vehiculos WHERE codigo_tcs = %s", (target,))
-                st.success(f"Unidad {target} eliminada correctamente.")
-                st.rerun()
+            if st.button("❌ ELIMINAR UNIDAD", type="primary", use_container_width=True):
+                try:
+                    # 1. Ejecutamos la eliminación con el WHERE correcto
+                    ejecutar_query("DELETE FROM vehiculos WHERE codigo_tcs = %s", (target,))
+                    
+                    # 2. MOSTRAR MENSAJE DE CONFIRMACIÓN
+                    # Usamos warning para que resalte que es una eliminación
+                    st.warning(f"⚠️ La unidad {target} ha sido eliminada de la base de datos.")
+                    
+                    # 3. ESPERAR 2 SEGUNDOS ANTES DE RECARGAR
+                    import time # Asegúrate de tenerlo al inicio del archivo
+                    time.sleep(2) 
+                    
+                    # 4. RECARGAR LA PÁGINA
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"Error al eliminar: {e}")
         else:
             st.info("No hay unidades registradas para eliminar.")
