@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 
+# Mantenemos tu configuración de página
 st.set_page_config(page_title="Sistema Vehicular", layout="wide")
 
 USUARIOS = {"admin": "tecserm2026", "logistica": "log2026"}
@@ -71,6 +72,12 @@ def check_login():
             text-align:center;
         }
 
+        /* ESTILO EXTRA PARA EL CHECKBOX */
+        .stCheckbox p {
+            color: #9ca3af !important;
+            font-family: 'Rajdhani', sans-serif !important;
+        }
+
         /* INPUTS */
         .stTextInput input{
             background:#020617;
@@ -106,7 +113,6 @@ def check_login():
 
         with col2:
 
-
             st.markdown('<div class="title">INICIAR SESIÓN</div>', unsafe_allow_html=True)
             st.markdown('<div class="subtitle">SISTEMA DE CONTROL VEHICULAR</div>', unsafe_allow_html=True)
 
@@ -119,10 +125,14 @@ def check_login():
             st.markdown('</div>', unsafe_allow_html=True)
 
             st.markdown('<div class="label"><i class="fa-solid fa-user icon"></i>Usuario</div>', unsafe_allow_html=True)
-            user = st.text_input("", placeholder="Ingrese su ID", label_visibility="collapsed")
+            # Cambiamos el label interno para que Chrome detecte el campo de usuario
+            user = st.text_input("Username", placeholder="Ingrese su ID", label_visibility="collapsed")
 
             st.markdown('<div class="label"><i class="fa-solid fa-lock icon"></i>Contraseña</div>', unsafe_allow_html=True)
-            password = st.text_input("", type="password", placeholder="Ingrese su contraseña", label_visibility="collapsed")
+            password = st.text_input("Password", type="password", placeholder="Ingrese su contraseña", label_visibility="collapsed")
+
+            # --- NUEVA OPCIÓN: RECORDAR ---
+            st.checkbox("Recordar sesión en este equipo")
 
             if st.button("ACCEDER AL SISTEMA", use_container_width=True):
 

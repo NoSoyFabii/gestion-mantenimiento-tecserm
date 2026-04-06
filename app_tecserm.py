@@ -88,10 +88,20 @@ def ejecutar_query(query_str=None, params=(), fetch=False, tabla="vehiculos"):
         st.error(f"Error en base de datos: {e}")
         return pd.DataFrame() if fetch else False
 
-def registrar_historial(codigo, accion, km, lugar="N/A"):
+def registrar_historial(codigo, accion, km, lugar="N/A", obs=""):
     try:
-        fecha_hoy = datetime.now().strftime("%d/%m/%Y %H:%M")
-        data = {"fecha": fecha_hoy, "codigo_tcs": str(codigo), "accion": accion, "kilometraje": int(km), "lugar": lugar}
+        # Usamos la hora de Perú para el registro
+        peru_tz = pytz.timezone('America/Lima')
+        fecha_hoy = datetime.now(peru_tz).strftime("%d/%m/%Y %H:%M")
+        
+        data = {
+            "fecha": fecha_hoy, 
+            "codigo_tcs": str(codigo), 
+            "accion": accion, 
+            "kilometraje": int(km), 
+            "lugar": lugar,
+            "observaciones": obs  # <--- Esta es la clave para el Excel
+        }
         supabase.table("historial").insert(data).execute()
     except Exception as e:
         st.error(f"Error al guardar historial: {e}")
@@ -281,10 +291,16 @@ elif selected == "Historial":
 
         hist = ejecutar_query(fetch=True, tabla="historial")
         if not hist.empty:
-            # 1. Procesar datos: Filtrar y calcular KM Anterior correctamente
+            # 1. Procesar datos: Filtrar y calcular KM Anterior
             hist_filtrado = hist[hist['codigo_tcs'] == u_busq].copy()
             hist_filtrado['kilometraje'] = pd.to_numeric(hist_filtrado['kilometraje'], errors='coerce').fillna(0).astype(int)
             
+            # Aseguramos que la columna observaciones exista en el dataframe
+            if 'observaciones' not in hist_filtrado.columns:
+                hist_filtrado['observaciones'] = ""
+            else:
+                hist_filtrado['observaciones'] = hist_filtrado['observaciones'].fillna("")
+
             # Ordenamos por fecha para que el cálculo del anterior sea real
             hist_filtrado = hist_filtrado.sort_values(by='fecha', ascending=True)
             hist_filtrado['KM_ANTERIOR'] = hist_filtrado['kilometraje'].shift(1).fillna(0).astype(int)
@@ -295,49 +311,53 @@ elif selected == "Historial":
             # --- GENERACIÓN DE EXCEL ---
             output_h = io.BytesIO()
             with pd.ExcelWriter(output_h, engine='xlsxwriter') as writer:
-                df_export = df_final[['fecha', 'accion', 'KM_ANTERIOR', 'kilometraje', 'lugar']].copy()
-                df_export.columns = ['FECHA/HORA', 'ACTIVIDAD', 'KM ANTERIOR', 'KM ACTUAL', 'UBICACIÓN/TALLER']
+                # AÑADIDO: 'observaciones' a la exportación
+                df_export = df_final[['fecha', 'accion', 'KM_ANTERIOR', 'kilometraje', 'lugar', 'observaciones']].copy()
+                df_export.columns = ['FECHA/HORA', 'ACTIVIDAD', 'KM ANTERIOR', 'KM ACTUAL', 'UBICACIÓN/TALLER', 'OBSERVACIONES']
                 
-                # Escribimos los datos empezando en la fila 7 (índice 6)
+                # Escribimos los datos (fila 7)
                 df_export.to_excel(writer, index=False, sheet_name='CONTROL_TCS', startrow=6, header=False)
                 
                 workbook  = writer.book
                 worksheet = writer.sheets['CONTROL_TCS']
 
                 # --- CONFIGURACIÓN DE PÁGINA ---
-                worksheet.set_landscape() # Hoja Horizontal
+                worksheet.set_landscape() 
                 worksheet.set_paper(9)    # A4
-                worksheet.fit_to_pages(1, 0) # Ajustar al ancho de la página
+                worksheet.fit_to_pages(1, 0) 
 
                 # --- FORMATOS ---
                 header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1f6feb', 'font_color': 'white', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-                data_fmt = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter'})
+                # Formato especial con text_wrap para que las observaciones no se corten
+                data_fmt = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'text_wrap': True})
                 title_fmt = workbook.add_format({'bold': True, 'font_size': 16, 'font_color': '#1f6feb', 'align': 'center'})
                 info_fmt = workbook.add_format({'align': 'center', 'bold': True})
-                firma_fmt = workbook.add_format({'align': 'center', 'bold': True, 'top': 2}) # Línea de firma más gruesa
+                firma_fmt = workbook.add_format({'align': 'center', 'bold': True, 'top': 2})
 
                 # --- ENCABEZADO Y LOGO ---
                 if os.path.exists("logo.png"):
                     worksheet.insert_image('A1', 'logo.png', {'x_scale': 0.16, 'y_scale': 0.16})
                 
-                worksheet.merge_range('C1:E2', 'REPORTE DE CONTROL VEHICULAR', title_fmt)
-                worksheet.merge_range('C3:E3', f"UNIDAD: {u_busq}  |  PLACA: {placa_v}", info_fmt)
-                worksheet.merge_range('C4:E4', f"MARCA: {marca_v}", workbook.add_format({'align': 'center'}))
+                # Expandimos el rango de mezcla de celdas hasta la columna F
+                worksheet.merge_range('C1:F2', 'REPORTE DE CONTROL VEHICULAR', title_fmt)
+                worksheet.merge_range('C3:F3', f"UNIDAD: {u_busq}  |  PLACA: {placa_v}", info_fmt)
+                worksheet.merge_range('C4:F4', f"MARCA: {marca_v}", workbook.add_format({'align': 'center'}))
                 
                 fecha_peru = datetime.now(tz_peru).strftime('%d/%m/%Y %H:%M')
-                worksheet.merge_range('C5:E5', f"FECHA IMPRESIÓN: {fecha_peru}", workbook.add_format({'align': 'center', 'italic': True, 'font_size': 10}))
+                worksheet.merge_range('C5:F5', f"FECHA IMPRESIÓN: {fecha_peru}", workbook.add_format({'align': 'center', 'italic': True, 'font_size': 10}))
 
-                # --- ANCHO DE COLUMNAS ---
-                worksheet.set_column('A:A', 20) # Fecha
-                worksheet.set_column('B:B', 30) # Actividad
-                worksheet.set_column('C:D', 15) # KM Anterior y Actual
-                worksheet.set_column('E:E', 30) # Ubicación
+                # --- ANCHO DE COLUMNAS ACTUALIZADO ---
+                worksheet.set_column('A:A', 18) # Fecha
+                worksheet.set_column('B:B', 25) # Actividad
+                worksheet.set_column('C:D', 14) # KM Anterior y Actual
+                worksheet.set_column('E:E', 25) # Ubicación
+                worksheet.set_column('F:F', 40) # OBSERVACIONES (Más ancha)
 
                 # --- ESCRIBIR CABECERAS ---
                 for col_num, value in enumerate(df_export.columns.values):
                     worksheet.write(6, col_num, value, header_fmt)
 
-                # --- ESCRIBIR DATOS CON BORDES SOLO DONDE HAY INFO ---
+                # --- ESCRIBIR DATOS ---
                 for row_num, row_data in enumerate(df_export.values):
                     for col_num, cell_value in enumerate(row_data):
                         worksheet.write(row_num + 7, col_num, cell_value, data_fmt)
@@ -345,19 +365,20 @@ elif selected == "Historial":
                 # --- FIRMAS ---
                 f_row = len(df_export) + 10
                 worksheet.merge_range(f_row, 0, f_row, 1, "V°B° LOGISTICA", firma_fmt)
-                worksheet.merge_range(f_row, 3, f_row, 4, "V°B° CALIDAD", firma_fmt)
+                # Movido a la derecha para equilibrar con la nueva columna
+                worksheet.merge_range(f_row, 4, f_row, 5, "V°B° CALIDAD", firma_fmt)
 
             # Botón de descarga
             st.download_button(
-                label="📥 DESCARGAR REPORTE DE VEHÍCULO SELECCIONADO",
+                label="📥 DESCARGAR REPORTE DE AUDITORÍA COMPLETO",
                 data=output_h.getvalue(),
                 file_name=f"AUDITORIA_{u_busq}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )
 
-            # Vista en tabla
-            st.dataframe(df_final[['fecha', 'accion', 'KM_ANTERIOR', 'kilometraje', 'lugar']], use_container_width=True, hide_index=True)
+            # Vista en tabla (Añadida la columna observaciones también aquí)
+            st.dataframe(df_final[['fecha', 'accion', 'KM_ANTERIOR', 'kilometraje', 'lugar', 'observaciones']], use_container_width=True, hide_index=True)
 elif selected == "Nueva Unidad":
     st.subheader("🚚 Alta de Vehículo")
     with st.form("new_unit_form"):
@@ -385,21 +406,23 @@ elif selected == "Mantenimiento Correctivo":
         # --- FORMULARIO DE REGISTRO ---
         with st.form("form_manto_correctivo"):
             col1, col2 = st.columns(2)
-            f_inicio = col1.date_input("Fecha de Ingreso", value=datetime.now())
-            f_fin = col2.date_input("Fecha de Salida", value=datetime.now())
+            f_inicio = col1.date_input("Fecha de Ingreso", value=datetime.now(), format="DD/MM/YYYY")
+            f_fin = col2.date_input("Fecha de Salida", value=datetime.now(), format="DD/MM/YYYY")   
             
             actividad = st.text_input("Actividad realizada", placeholder="Ej: Cambio de neumáticos delanteros")
             costo_mant = st.number_input("Costo del servicio (S/.)", min_value=0.0, step=0.50)
-            observaciones = st.text_area("Observaciones / Detalles técnicos")
             
-            if st.form_submit_button("💾 REGISTRAR EN BITÁCORA"):
+            # Estas son las observaciones que el auditor quiere ver detalladas
+            comentarios = st.text_area("Observaciones / Detalles técnicos")
+            
+            if st.form_submit_button("💾 REGISTRAR"):
                 if actividad:
                     data_corr = {
                         "fecha_inicio": str(f_inicio),
                         "fecha_fin": str(f_fin),
                         "codigo_tcs": u_sel,
                         "descripcion": actividad,
-                        "observaciones": observaciones,
+                        "observaciones": comentarios, # NUEVO: Guardado en tabla correctiva
                         "costo": float(costo_mant)
                     }
                     
@@ -407,8 +430,9 @@ elif selected == "Mantenimiento Correctivo":
                         # 1. Guardar en tabla específica de correctivos
                         supabase.table("mantenimiento_correctivo").insert(data_corr).execute()
                         
-                        # 2. Guardar en Historial General para el reporte de auditoría
-                        registrar_historial(u_sel, f"CORRECTIVO: {actividad}", 0, "Taller Externo")
+                        # 2. NUEVO: Guardar en Historial General pasando los comentarios
+                        # Ahora incluimos 'comentarios' al final para que aparezcan en el Excel
+                        registrar_historial(u_sel, f"CORRECTIVO: {actividad}", 0, "Taller Externo", comentarios)
                         
                         st.success(f"✅ Registro guardado con éxito para la unidad {u_sel}")
                         st.balloons()
@@ -419,17 +443,15 @@ elif selected == "Mantenimiento Correctivo":
                 else:
                     st.warning("⚠️ La descripción de la actividad es obligatoria.")
 
-        # --- TABLA DE VISUALIZACIÓN RÁPIDA (Últimos 5 registros) ---
+        # --- TABLA DE VISUALIZACIÓN RÁPIDA ---
         st.markdown("---")
         st.subheader(f"📋 Últimos correctivos de la unidad {u_sel}")
         
         try:
-            # Consultamos la nueva tabla filtrando por la unidad seleccionada
             res_c = supabase.table("mantenimiento_correctivo").select("*").eq("codigo_tcs", u_sel).order("fecha_inicio", desc=True).limit(5).execute()
             df_corr = pd.DataFrame(res_c.data)
             
             if not df_corr.empty:
-                # Renombrar columnas para que se vean bien en la interfaz
                 df_view = df_corr[['fecha_inicio', 'fecha_fin', 'descripcion', 'costo', 'observaciones']].copy()
                 df_view.columns = ['F. INICIO', 'F. FIN', 'ACTIVIDAD', 'COSTO (S/.)', 'OBSERVACIONES']
                 st.dataframe(df_view, use_container_width=True, hide_index=True)
