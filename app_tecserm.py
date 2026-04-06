@@ -31,13 +31,22 @@ except Exception as e:
     supabase = None
 
 # --- NUEVO: FUNCIÓN PARA MANTENER VIVO SUPABASE (Despertador) ---
+# --- NUEVO: FUNCIÓN PARA MANTENER VIVO SUPABASE (Despertador con reintento) ---
 def despertar_supabase():
     if supabase:
-        try:
-            # Micro-consulta para evitar la pausa por inactividad
-            supabase.table("vehiculos").select("count", count="exact").limit(1).execute()
-        except Exception:
-            pass
+        for _ in range(2): # Intenta 2 veces si falla
+            try:
+                # Una consulta ultra-rápida para "patear" el servidor
+                supabase.table("vehiculos").select("id").limit(1).execute()
+                return True
+            except Exception:
+                time.sleep(1)
+    return False
+
+# Ejecutar el despertador al puro inicio del script
+if "despierto" not in st.session_state:
+    despertar_supabase()
+    st.session_state["despierto"] = True
 
 # --- ACTIVACIÓN DEL DESPERTADOR (Antes del login) ---
 despertar_supabase()
