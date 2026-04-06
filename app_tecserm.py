@@ -200,7 +200,7 @@ with st.sidebar:
     st.markdown("---")
     st.button("🚪 CERRAR SESIÓN", use_container_width=True, on_click=cerrar_sesion)
 
-st.markdown('<div class="main-title">GESTIÓN DE MANTENIMIENTO PREVENTIVO</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">GESTIÓN DE MANTENIMIENTO PREVENTIVO Y CORRECTIVO</div>', unsafe_allow_html=True)
 
 # --- 5. VISTAS ---
 
