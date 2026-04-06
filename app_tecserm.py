@@ -304,50 +304,38 @@ elif selected == "Historial":
             hist_filtrado = hist[hist['codigo_tcs'] == u_busq].copy()
             hist_filtrado['kilometraje'] = pd.to_numeric(hist_filtrado['kilometraje'], errors='coerce').fillna(0).astype(int)
             
-            # Aseguramos que la columna observaciones exista en el dataframe
             if 'observaciones' not in hist_filtrado.columns:
                 hist_filtrado['observaciones'] = ""
             else:
                 hist_filtrado['observaciones'] = hist_filtrado['observaciones'].fillna("")
 
-            # Ordenamos por fecha para que el cálculo del anterior sea real
             hist_filtrado = hist_filtrado.sort_values(by='fecha', ascending=True)
             hist_filtrado['KM_ANTERIOR'] = hist_filtrado['kilometraje'].shift(1).fillna(0).astype(int)
             
-            # Reordenar para mostrar lo más reciente arriba
             df_final = hist_filtrado.sort_index(ascending=False)
 
             # --- GENERACIÓN DE EXCEL ---
             output_h = io.BytesIO()
             with pd.ExcelWriter(output_h, engine='xlsxwriter') as writer:
-                # AÑADIDO: 'observaciones' a la exportación
                 df_export = df_final[['fecha', 'accion', 'KM_ANTERIOR', 'kilometraje', 'lugar', 'observaciones']].copy()
                 df_export.columns = ['FECHA/HORA', 'ACTIVIDAD', 'KM ANTERIOR', 'KM ACTUAL', 'UBICACIÓN/TALLER', 'OBSERVACIONES']
-                
-                # Escribimos los datos (fila 7)
                 df_export.to_excel(writer, index=False, sheet_name='CONTROL_TCS', startrow=6, header=False)
                 
                 workbook  = writer.book
                 worksheet = writer.sheets['CONTROL_TCS']
-
-                # --- CONFIGURACIÓN DE PÁGINA ---
                 worksheet.set_landscape() 
-                worksheet.set_paper(9)    # A4
+                worksheet.set_paper(9)
                 worksheet.fit_to_pages(1, 0) 
 
-                # --- FORMATOS ---
                 header_fmt = workbook.add_format({'bold': True, 'bg_color': '#1f6feb', 'font_color': 'white', 'border': 1, 'align': 'center', 'valign': 'vcenter'})
-                # Formato especial con text_wrap para que las observaciones no se corten
                 data_fmt = workbook.add_format({'border': 1, 'align': 'center', 'valign': 'vcenter', 'text_wrap': True})
                 title_fmt = workbook.add_format({'bold': True, 'font_size': 16, 'font_color': '#1f6feb', 'align': 'center'})
                 info_fmt = workbook.add_format({'align': 'center', 'bold': True})
                 firma_fmt = workbook.add_format({'align': 'center', 'bold': True, 'top': 2})
 
-                # --- ENCABEZADO Y LOGO ---
                 if os.path.exists("logo.png"):
                     worksheet.insert_image('A1', 'logo.png', {'x_scale': 0.16, 'y_scale': 0.16})
                 
-                # Expandimos el rango de mezcla de celdas hasta la columna F
                 worksheet.merge_range('C1:F2', 'REPORTE DE CONTROL VEHICULAR', title_fmt)
                 worksheet.merge_range('C3:F3', f"UNIDAD: {u_busq}  |  PLACA: {placa_v}", info_fmt)
                 worksheet.merge_range('C4:F4', f"MARCA: {marca_v}", workbook.add_format({'align': 'center'}))
@@ -355,29 +343,23 @@ elif selected == "Historial":
                 fecha_peru = datetime.now(tz_peru).strftime('%d/%m/%Y %H:%M')
                 worksheet.merge_range('C5:F5', f"FECHA IMPRESIÓN: {fecha_peru}", workbook.add_format({'align': 'center', 'italic': True, 'font_size': 10}))
 
-                # --- ANCHO DE COLUMNAS ACTUALIZADO ---
-                worksheet.set_column('A:A', 18) # Fecha
-                worksheet.set_column('B:B', 25) # Actividad
-                worksheet.set_column('C:D', 14) # KM Anterior y Actual
-                worksheet.set_column('E:E', 25) # Ubicación
-                worksheet.set_column('F:F', 40) # OBSERVACIONES (Más ancha)
+                worksheet.set_column('A:A', 18)
+                worksheet.set_column('B:B', 25)
+                worksheet.set_column('C:D', 14)
+                worksheet.set_column('E:E', 25)
+                worksheet.set_column('F:F', 40)
 
-                # --- ESCRIBIR CABECERAS ---
                 for col_num, value in enumerate(df_export.columns.values):
                     worksheet.write(6, col_num, value, header_fmt)
 
-                # --- ESCRIBIR DATOS ---
                 for row_num, row_data in enumerate(df_export.values):
                     for col_num, cell_value in enumerate(row_data):
                         worksheet.write(row_num + 7, col_num, cell_value, data_fmt)
 
-                # --- FIRMAS ---
                 f_row = len(df_export) + 10
                 worksheet.merge_range(f_row, 0, f_row, 1, "V°B° LOGISTICA", firma_fmt)
-                # Movido a la derecha para equilibrar con la nueva columna
                 worksheet.merge_range(f_row, 4, f_row, 5, "V°B° CALIDAD", firma_fmt)
 
-            # Botón de descarga
             st.download_button(
                 label="📥 DESCARGAR REPORTE DE AUDITORÍA COMPLETO",
                 data=output_h.getvalue(),
@@ -386,8 +368,32 @@ elif selected == "Historial":
                 use_container_width=True
             )
 
-            # Vista en tabla (Añadida la columna observaciones también aquí)
+            # Vista en tabla
             st.dataframe(df_final[['fecha', 'accion', 'KM_ANTERIOR', 'kilometraje', 'lugar', 'observaciones']], use_container_width=True, hide_index=True)
+
+            # --- NUEVA ZONA DE LIMPIEZA (AQUÍ DEBES PEGARLO) ---
+            st.markdown("---")
+            with st.expander("🗑️ Corregir Historial (Eliminar registros duplicados o erróneos)"):
+                st.warning("⚠️ Esta acción eliminará el registro seleccionado del reporte de auditoría permanentemente.")
+                
+                # Creamos el diccionario de opciones usando el ID real de la base de datos
+                opciones_hist = {
+                    f"{r['fecha']} | {r['accion']} | {r['kilometraje']} KM": r['id'] 
+                    for _, r in df_final.iterrows()
+                }
+                
+                registro_a_borrar = st.selectbox("Seleccione el registro exacto a eliminar:", 
+                                                 options=list(opciones_hist.keys()))
+                
+                if st.button("❌ ELIMINAR REGISTRO SELECCIONADO", type="primary", use_container_width=True):
+                    id_db = opciones_hist[registro_a_borrar]
+                    try:
+                        supabase.table("historial").delete().eq("id", id_db).execute()
+                        st.error(f"✅ Registro eliminado con éxito.")
+                        time.sleep(1.5)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"No se pudo eliminar: {e}")
 elif selected == "Nueva Unidad":
     st.subheader("🚚 Alta de Vehículo")
     with st.form("new_unit_form"):
