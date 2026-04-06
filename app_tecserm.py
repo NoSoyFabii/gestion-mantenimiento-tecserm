@@ -481,7 +481,7 @@ elif selected == "Ajustes":
                 df_raw['Estado'] = df_raw['KM Faltantes'].apply(lambda x: 'CRÍTICO' if x < 200 else ('ALERTA' if x < 600 else 'OPERATIVO'))
                 
                 # Renombrar columnas para el Excel
-                df_raw.columns = ['CÓDIGO', 'PLACA', 'MARCA', 'U. MANTO (KM)', 'KM ACTUAL', 'FRECUENCIA', 'PRÓX. MANTO', 'FALTAN (KM)', 'ESTADO']
+                df_raw.columns = ['CÓDIGO', 'PLACA', 'MARCA', 'FRECUENCIA', 'U. MANTO (KM)', 'KM ACTUAL', 'PRÓX. MANTO', 'FALTAN (KM)', 'ESTADO']
 
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
